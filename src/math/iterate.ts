@@ -9,7 +9,9 @@ export function iterateFunction(
     let x = start;
 
     for (let i = 0; i < steps; i++) {
+
         x = fn(x);
+
         values.push(x);
     }
 
