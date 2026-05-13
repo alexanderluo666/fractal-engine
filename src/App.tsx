@@ -12,7 +12,7 @@ export default function App() {
 
     const [start, setStart] = useState(0.5);
 
-    const [steps, setSteps] = useState(20);
+    const [steps, setSteps] = useState(50);
 
     const [r, setR] = useState(3.7);
 
@@ -43,285 +43,323 @@ export default function App() {
     }, [selectedFunction, start, steps, r]);
 
     return (
-        <div
-            style={{
-                padding: 24,
-                maxWidth: 900,
-                margin: '0 auto',
-                fontFamily: 'sans-serif',
-                color: 'white',
-                background: '#0a0a0a',
-                minHeight: '100vh',
-            }}
-        >
 
-            <h1
-                style={{
-                    fontSize: 40,
-                    marginBottom: 8,
-                }}
-            >
-                Fractal Engine 🚀
-            </h1>
+        <div className="min-h-screen bg-black text-white p-6">
 
-            <p
-                style={{
-                    color: '#888',
-                    marginBottom: 32,
-                }}
-            >
-                Dynamical Systems Playground
-            </p>
+            <div className="max-w-7xl mx-auto">
 
-            <div
-                style={{
-                    background: '#151515',
-                    padding: 24,
-                    borderRadius: 16,
-                    marginBottom: 24,
-                }}
-            >
+                {/* Header */}
 
-                {/* Function Selector */}
+                <div className="mb-8">
 
-                <div style={{ marginBottom: 24 }}>
-
-                    <label>
-                        Function
-                    </label>
-
-                    <br />
-
-                    <select
-                        value={selectedFunction}
-                        onChange={(e) =>
-                            setSelectedFunction(
-                                e.target.value
-                            )
-                        }
-                        style={{
-                            marginTop: 8,
-                            padding: 12,
-                            width: '100%',
-                            borderRadius: 8,
-                            background: '#222',
-                            color: 'white',
-                            border: '1px solid #333',
-                        }}
+                    <h1
+                        className="
+                            text-5xl
+                            font-black
+                            bg-gradient-to-r
+                            from-green-400
+                            to-cyan-400
+                            text-transparent
+                            bg-clip-text
+                        "
                     >
-                        <option value="cosine">
-                            Cosine
-                        </option>
+                        Fractal Engine
+                    </h1>
 
-                        <option value="sqrt">
-                            Square Root
-                        </option>
-
-                        <option value="logistic">
-                            Logistic Map
-                        </option>
-
-                    </select>
+                    <p className="text-zinc-500 mt-2">
+                        Dynamical Systems Playground
+                    </p>
 
                 </div>
 
-                {/* Start Value */}
+                <div
+                    className="
+                        grid
+                        grid-cols-1
+                        lg:grid-cols-3
+                        gap-6
+                    "
+                >
 
-                <div style={{ marginBottom: 24 }}>
+                    {/* Left Panel */}
 
-                    <label>
-                        Start Value:
-                        {' '}
-                        {start.toFixed(2)}
-                    </label>
+                    <div
+                        className="
+                            bg-zinc-900/80
+                            backdrop-blur
+                            rounded-3xl
+                            p-6
+                            border
+                            border-zinc-800
+                        "
+                    >
 
-                    <br />
-
-                    <input
-                        type="range"
-                        min="-2"
-                        max="2"
-                        step="0.01"
-                        value={start}
-                        onChange={(e) =>
-                            setStart(
-                                Number(e.target.value)
-                            )
-                        }
-                        style={{
-                            width: '100%',
-                            marginTop: 8,
-                        }}
-                    />
-
-                </div>
-
-                {/* Steps */}
-
-                <div style={{ marginBottom: 24 }}>
-
-                    <label>
-                        Steps:
-                        {' '}
-                        {steps}
-                    </label>
-
-                    <br />
-
-                    <input
-                        type="range"
-                        min="1"
-                        max="300"
-                        value={steps}
-                        onChange={(e) =>
-                            setSteps(
-                                Number(e.target.value)
-                            )
-                        }
-                        style={{
-                            width: '100%',
-                            marginTop: 8,
-                        }}
-                    />
-
-                </div>
-
-                {/* Logistic r */}
-
-                {
-                    selectedFunction === 'logistic' && (
-
-                        <div
-                            style={{
-                                marginBottom: 24,
-                            }}
+                        <h2
+                            className="
+                                text-2xl
+                                font-bold
+                                mb-6
+                            "
                         >
+                            Controls
+                        </h2>
 
-                            <label>
-                                r Value:
-                                {' '}
-                                {r.toFixed(2)}
+                        {/* Function */}
+
+                        <div className="mb-6">
+
+                            <label
+                                className="
+                                    block
+                                    mb-2
+                                    text-zinc-300
+                                "
+                            >
+                                Function
                             </label>
 
-                            <br />
+                            <select
+                                value={selectedFunction}
+                                onChange={(e) =>
+                                    setSelectedFunction(
+                                        e.target.value
+                                    )
+                                }
+                                className="
+                                    w-full
+                                    bg-zinc-800
+                                    border
+                                    border-zinc-700
+                                    rounded-xl
+                                    p-3
+                                "
+                            >
+                                <option value="cosine">
+                                    Cosine
+                                </option>
+
+                                <option value="sqrt">
+                                    Square Root
+                                </option>
+
+                                <option value="logistic">
+                                    Logistic Map
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                        {/* Start */}
+
+                        <div className="mb-6">
+
+                            <div
+                                className="
+                                    flex
+                                    justify-between
+                                    mb-2
+                                "
+                            >
+                                <span>
+                                    Start Value
+                                </span>
+
+                                <span
+                                    className="
+                                        text-green-400
+                                    "
+                                >
+                                    {start.toFixed(2)}
+                                </span>
+
+                            </div>
 
                             <input
                                 type="range"
-                                min="0"
-                                max="4"
+                                min="-2"
+                                max="2"
                                 step="0.01"
-                                value={r}
+                                value={start}
                                 onChange={(e) =>
-                                    setR(
+                                    setStart(
                                         Number(
                                             e.target.value
                                         )
                                     )
                                 }
-                                style={{
-                                    width: '100%',
-                                    marginTop: 8,
-                                }}
+                                className="w-full"
                             />
 
                         </div>
-                    )
-                }
 
-            </div>
+                        {/* Steps */}
 
-            {/* Current Value */}
+                        <div className="mb-6">
 
-            <div
-                style={{
-                    background: '#151515',
-                    padding: 24,
-                    borderRadius: 16,
-                    marginBottom: 24,
-                }}
-            >
+                            <div
+                                className="
+                                    flex
+                                    justify-between
+                                    mb-2
+                                "
+                            >
+                                <span>
+                                    Steps
+                                </span>
 
-                <h2
-                    style={{
-                        marginTop: 0,
-                    }}
-                >
-                    Current Value
-                </h2>
+                                <span
+                                    className="
+                                        text-cyan-400
+                                    "
+                                >
+                                    {steps}
+                                </span>
 
-                <div
-                    style={{
-                        fontSize: 32,
-                        color: '#00ff88',
-                        fontWeight: 'bold',
-                    }}
-                >
-                    {
-                        values[
-                            values.length - 1
-                        ].toFixed(6)
-                    }
+                            </div>
+
+                            <input
+                                type="range"
+                                min="1"
+                                max="500"
+                                value={steps}
+                                onChange={(e) =>
+                                    setSteps(
+                                        Number(
+                                            e.target.value
+                                        )
+                                    )
+                                }
+                                className="w-full"
+                            />
+
+                        </div>
+
+                        {/* Logistic */}
+
+                        {
+                            selectedFunction ===
+                            'logistic' && (
+
+                                <div className="mb-6">
+
+                                    <div
+                                        className="
+                                            flex
+                                            justify-between
+                                            mb-2
+                                        "
+                                    >
+                                        <span>
+                                            r Value
+                                        </span>
+
+                                        <span
+                                            className="
+                                                text-pink-400
+                                            "
+                                        >
+                                            {r.toFixed(2)}
+                                        </span>
+
+                                    </div>
+
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="4"
+                                        step="0.01"
+                                        value={r}
+                                        onChange={(e) =>
+                                            setR(
+                                                Number(
+                                                    e.target.value
+                                                )
+                                            )
+                                        }
+                                        className="w-full"
+                                    />
+
+                                </div>
+                            )
+                        }
+
+                    </div>
+
+                    {/* Right Side */}
+
+                    <div className="lg:col-span-2">
+
+                        {/* Current Value */}
+
+                        <div
+                            className="
+                                bg-zinc-900/80
+                                rounded-3xl
+                                p-6
+                                border
+                                border-zinc-800
+                                mb-6
+                            "
+                        >
+
+                            <h2
+                                className="
+                                    text-xl
+                                    text-zinc-400
+                                    mb-2
+                                "
+                            >
+                                Current Value
+                            </h2>
+
+                            <div
+                                className="
+                                    text-5xl
+                                    font-black
+                                    text-green-400
+                                "
+                            >
+                                {
+                                    values[
+                                        values.length - 1
+                                    ].toFixed(6)
+                                }
+                            </div>
+
+                        </div>
+
+                        {/* Graph */}
+
+                        <div
+                            className="
+                                bg-zinc-900/80
+                                rounded-3xl
+                                p-6
+                                border
+                                border-zinc-800
+                            "
+                        >
+
+                            <h2
+                                className="
+                                    text-2xl
+                                    font-bold
+                                    mb-4
+                                "
+                            >
+                                Visualization
+                            </h2>
+
+                            <GraphCanvas
+                                values={values}
+                            />
+
+                        </div>
+
+                    </div>
+
                 </div>
-
-            </div>
-
-            {/* Graph */}
-
-            <div
-                style={{
-                    background: '#151515',
-                    padding: 24,
-                    borderRadius: 16,
-                    marginBottom: 24,
-                }}
-            >
-
-                <h2
-                    style={{
-                        marginTop: 0,
-                    }}
-                >
-                    Visualization
-                </h2>
-
-                <GraphCanvas values={values} />
-
-            </div>
-
-            {/* Sequence */}
-
-            <div
-                style={{
-                    background: '#151515',
-                    padding: 24,
-                    borderRadius: 16,
-                }}
-            >
-
-                <h2
-                    style={{
-                        marginTop: 0,
-                    }}
-                >
-                    Sequence
-                </h2>
-
-                <pre
-                    style={{
-                        background: '#111',
-                        color: '#00ff88',
-                        padding: 16,
-                        borderRadius: 8,
-                        overflowX: 'auto',
-                        maxHeight: 400,
-                    }}
-                >
-                    {
-                        values.map((v, i) =>
-                            `${i}: ${v}\n`
-                        )
-                    }
-                </pre>
 
             </div>
 
