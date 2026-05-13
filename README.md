@@ -8,5 +8,5 @@
 + Later I discovered the concept of Fractal Derivatives, which is directly related to Fractals.
 
 ## Resources and References
-+ [Fractal Derivative](https://en.wikipedia.org/wiki/Fractal_derivative).
-+ [Fractal](https://en.wikipedia.org/wiki/Fractal).
++ [Fractal Derivative In Wikipedia](https://en.wikipedia.org/wiki/Fractal_derivative).
++ [Fractal In Wikipedia](https://en.wikipedia.org/wiki/Fractal).
