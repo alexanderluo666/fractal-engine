@@ -2,10 +2,12 @@ import { useEffect, useRef } from 'react';
 
 type Props = {
     values: number[];
+    color: string;
 };
 
 export default function GraphCanvas({
     values,
+    color,
 }: Props) {
 
     const canvasRef =
@@ -17,46 +19,109 @@ export default function GraphCanvas({
 
         if (!canvas) return;
 
-        const ctx = canvas.getContext('2d');
+        const ctx =
+            canvas.getContext('2d');
 
         if (!ctx) return;
 
         const width = canvas.width;
         const height = canvas.height;
 
-        ctx.clearRect(0, 0, width, height);
-
         // Background
-        ctx.fillStyle = '#111';
-        ctx.fillRect(0, 0, width, height);
+
+        ctx.clearRect(
+            0,
+            0,
+            width,
+            height
+        );
+
+        ctx.fillStyle = '#090909';
+
+        ctx.fillRect(
+            0,
+            0,
+            width,
+            height
+        );
+
+        // Grid
+
+        ctx.strokeStyle = '#181818';
+
+        for (
+            let x = 0;
+            x < width;
+            x += 50
+        ) {
+
+            ctx.beginPath();
+
+            ctx.moveTo(x, 0);
+
+            ctx.lineTo(x, height);
+
+            ctx.stroke();
+        }
+
+        for (
+            let y = 0;
+            y < height;
+            y += 50
+        ) {
+
+            ctx.beginPath();
+
+            ctx.moveTo(0, y);
+
+            ctx.lineTo(width, y);
+
+            ctx.stroke();
+        }
 
         // Axes
-        ctx.strokeStyle = '#444';
+
+        ctx.strokeStyle = '#333';
 
         ctx.beginPath();
 
         ctx.moveTo(40, 0);
-        ctx.lineTo(40, height - 30);
 
-        ctx.lineTo(width, height - 30);
+        ctx.lineTo(
+            40,
+            height - 30
+        );
+
+        ctx.lineTo(
+            width,
+            height - 30
+        );
 
         ctx.stroke();
 
         // Graph
-        ctx.strokeStyle = '#00ff88';
+
+        ctx.strokeStyle = color;
+
         ctx.lineWidth = 2;
 
         ctx.beginPath();
 
-        values.forEach((value, index) => {
+        values.forEach((
+            value,
+            index
+        ) => {
 
             const x =
                 40 +
-                (index / (values.length - 1)) *
+                (
+                    index /
+                    (values.length - 1)
+                ) *
                 (width - 60);
 
             const normalized =
-                (value + 2) / 4;
+                (value + 4) / 8;
 
             const y =
                 (height - 30) -
@@ -64,28 +129,32 @@ export default function GraphCanvas({
                 (height - 60);
 
             if (index === 0) {
+
                 ctx.moveTo(x, y);
-            }
-            else {
+
+            } else {
+
                 ctx.lineTo(x, y);
+
             }
 
         });
 
         ctx.stroke();
 
-    }, [values]);
+    }, [values, color]);
 
     return (
+
         <canvas
             ref={canvasRef}
-            width={700}
-            height={400}
-            style={{
-                width: '100%',
-                borderRadius: 12,
-                marginTop: 24,
-            }}
+            width={1000}
+            height={500}
+            className="
+                w-full
+                rounded-2xl
+            "
         />
+
     );
 }

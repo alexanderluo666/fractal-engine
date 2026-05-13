@@ -5,16 +5,55 @@ import { functions } from './math/functions';
 
 import GraphCanvas from './components/GraphCanvas';
 
+const COLORS = {
+    green: '#00ff88',
+    cyan: '#00e5ff',
+    pink: '#ff4fd8',
+    orange: '#ff9f1c',
+    purple: '#9b5cff',
+    red: '#ff4f4f',
+    yellow: '#ffe600',
+};
+
 export default function App() {
 
     const [selectedFunction, setSelectedFunction] =
         useState('cosine');
 
-    const [start, setStart] = useState(0.5);
+    const [start, setStart] =
+        useState(0.5);
 
-    const [steps, setSteps] = useState(50);
+    const [steps, setSteps] =
+        useState(50);
 
-    const [r, setR] = useState(3.7);
+    const [r, setR] =
+        useState(3.7);
+
+    const [mode, setMode] =
+        useState<'gui' | 'cli'>('gui');
+
+    const [selectedColor, setSelectedColor] =
+        useState('green');
+
+    const graphColor = useMemo(() => {
+
+        if (selectedColor === 'random') {
+
+            const values =
+                Object.values(COLORS);
+
+            return values[
+                Math.floor(
+                    Math.random() * values.length
+                )
+            ];
+        }
+
+        return COLORS[
+            selectedColor as keyof typeof COLORS
+        ];
+
+    }, [selectedColor]);
 
     const values = useMemo(() => {
 
@@ -30,6 +69,30 @@ export default function App() {
                 fn = functions.logistic(r);
                 break;
 
+            case 'tanh':
+                fn = functions.tanh;
+                break;
+
+            case 'atan':
+                fn = functions.atan;
+                break;
+
+            case 'reciprocalShift':
+                fn = functions.reciprocalShift;
+                break;
+
+            case 'cosineSquared':
+                fn = functions.cosineSquared;
+                break;
+
+            case 'dampedSine':
+                fn = functions.dampedSine;
+                break;
+
+            case 'fixedPointWeird':
+                fn = functions.fixedPointWeird;
+                break;
+
             default:
                 fn = functions.cosine;
         }
@@ -40,7 +103,12 @@ export default function App() {
             steps
         );
 
-    }, [selectedFunction, start, steps, r]);
+    }, [
+        selectedFunction,
+        start,
+        steps,
+        r,
+    ]);
 
     return (
 
@@ -50,25 +118,53 @@ export default function App() {
 
                 {/* Header */}
 
-                <div className="mb-8">
+                <div className="flex justify-between items-center mb-8">
 
-                    <h1
+                    <div>
+
+                        <h1
+                            className="
+                                text-5xl
+                                font-black
+                                bg-gradient-to-r
+                                from-green-400
+                                to-cyan-400
+                                text-transparent
+                                bg-clip-text
+                            "
+                        >
+                            Fractal Engine
+                        </h1>
+
+                        <p className="text-zinc-500 mt-2">
+                            Dynamical Systems Playground
+                        </p>
+
+                    </div>
+
+                    <button
+                        onClick={() =>
+                            setMode(
+                                mode === 'gui'
+                                    ? 'cli'
+                                    : 'gui'
+                            )
+                        }
                         className="
-                            text-5xl
-                            font-black
-                            bg-gradient-to-r
-                            from-green-400
-                            to-cyan-400
-                            text-transparent
-                            bg-clip-text
+                            px-5
+                            py-3
+                            rounded-2xl
+                            bg-zinc-800
+                            hover:bg-zinc-700
+                            transition
                         "
                     >
-                        Fractal Engine
-                    </h1>
-
-                    <p className="text-zinc-500 mt-2">
-                        Dynamical Systems Playground
-                    </p>
+                        Switch to {
+                            mode === 'gui'
+                                ? 'CLI'
+                                : 'GUI'
+                        }
+                    </button>
 
                 </div>
 
@@ -81,12 +177,11 @@ export default function App() {
                     "
                 >
 
-                    {/* Left Panel */}
+                    {/* Controls */}
 
                     <div
                         className="
                             bg-zinc-900/80
-                            backdrop-blur
                             rounded-3xl
                             p-6
                             border
@@ -94,13 +189,7 @@ export default function App() {
                         "
                     >
 
-                        <h2
-                            className="
-                                text-2xl
-                                font-bold
-                                mb-6
-                            "
-                        >
+                        <h2 className="text-2xl font-bold mb-6">
                             Controls
                         </h2>
 
@@ -108,13 +197,7 @@ export default function App() {
 
                         <div className="mb-6">
 
-                            <label
-                                className="
-                                    block
-                                    mb-2
-                                    text-zinc-300
-                                "
-                            >
+                            <label className="block mb-2">
                                 Function
                             </label>
 
@@ -134,6 +217,7 @@ export default function App() {
                                     p-3
                                 "
                             >
+
                                 <option value="cosine">
                                     Cosine
                                 </option>
@@ -146,6 +230,91 @@ export default function App() {
                                     Logistic Map
                                 </option>
 
+                                <option value="tanh">
+                                    tanh(x)
+                                </option>
+
+                                <option value="atan">
+                                    atan(x)
+                                </option>
+
+                                <option value="reciprocalShift">
+                                    1 / (x + 2)
+                                </option>
+
+                                <option value="cosineSquared">
+                                    cos(x^2)
+                                </option>
+
+                                <option value="dampedSine">
+                                    sin(x) / 2
+                                </option>
+
+                                <option value="fixedPointWeird">
+                                    Weird Fixed Point
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                        {/* Color */}
+
+                        <div className="mb-6">
+
+                            <label className="block mb-2">
+                                Graph Color
+                            </label>
+
+                            <select
+                                value={selectedColor}
+                                onChange={(e) =>
+                                    setSelectedColor(
+                                        e.target.value
+                                    )
+                                }
+                                className="
+                                    w-full
+                                    bg-zinc-800
+                                    border
+                                    border-zinc-700
+                                    rounded-xl
+                                    p-3
+                                "
+                            >
+
+                                <option value="green">
+                                    Green
+                                </option>
+
+                                <option value="cyan">
+                                    Cyan
+                                </option>
+
+                                <option value="pink">
+                                    Pink
+                                </option>
+
+                                <option value="orange">
+                                    Orange
+                                </option>
+
+                                <option value="purple">
+                                    Purple
+                                </option>
+
+                                <option value="red">
+                                    Red
+                                </option>
+
+                                <option value="yellow">
+                                    Yellow
+                                </option>
+
+                                <option value="random">
+                                    Random
+                                </option>
+
                             </select>
 
                         </div>
@@ -154,22 +323,13 @@ export default function App() {
 
                         <div className="mb-6">
 
-                            <div
-                                className="
-                                    flex
-                                    justify-between
-                                    mb-2
-                                "
-                            >
+                            <div className="flex justify-between mb-2">
+
                                 <span>
                                     Start Value
                                 </span>
 
-                                <span
-                                    className="
-                                        text-green-400
-                                    "
-                                >
+                                <span className="text-green-400">
                                     {start.toFixed(2)}
                                 </span>
 
@@ -183,9 +343,7 @@ export default function App() {
                                 value={start}
                                 onChange={(e) =>
                                     setStart(
-                                        Number(
-                                            e.target.value
-                                        )
+                                        Number(e.target.value)
                                     )
                                 }
                                 className="w-full"
@@ -197,22 +355,13 @@ export default function App() {
 
                         <div className="mb-6">
 
-                            <div
-                                className="
-                                    flex
-                                    justify-between
-                                    mb-2
-                                "
-                            >
+                            <div className="flex justify-between mb-2">
+
                                 <span>
                                     Steps
                                 </span>
 
-                                <span
-                                    className="
-                                        text-cyan-400
-                                    "
-                                >
+                                <span className="text-cyan-400">
                                     {steps}
                                 </span>
 
@@ -225,9 +374,7 @@ export default function App() {
                                 value={steps}
                                 onChange={(e) =>
                                     setSteps(
-                                        Number(
-                                            e.target.value
-                                        )
+                                        Number(e.target.value)
                                     )
                                 }
                                 className="w-full"
@@ -243,22 +390,13 @@ export default function App() {
 
                                 <div className="mb-6">
 
-                                    <div
-                                        className="
-                                            flex
-                                            justify-between
-                                            mb-2
-                                        "
-                                    >
+                                    <div className="flex justify-between mb-2">
+
                                         <span>
                                             r Value
                                         </span>
 
-                                        <span
-                                            className="
-                                                text-pink-400
-                                            "
-                                        >
+                                        <span className="text-pink-400">
                                             {r.toFixed(2)}
                                         </span>
 
@@ -272,9 +410,7 @@ export default function App() {
                                         value={r}
                                         onChange={(e) =>
                                             setR(
-                                                Number(
-                                                    e.target.value
-                                                )
+                                                Number(e.target.value)
                                             )
                                         }
                                         className="w-full"
@@ -286,9 +422,9 @@ export default function App() {
 
                     </div>
 
-                    {/* Right Side */}
+                    {/* Main */}
 
-                    <div className="lg:col-span-2">
+                    <div className="lg:col-span-2 space-y-6">
 
                         {/* Current Value */}
 
@@ -299,17 +435,10 @@ export default function App() {
                                 p-6
                                 border
                                 border-zinc-800
-                                mb-6
                             "
                         >
 
-                            <h2
-                                className="
-                                    text-xl
-                                    text-zinc-400
-                                    mb-2
-                                "
-                            >
+                            <h2 className="text-zinc-400 mb-2">
                                 Current Value
                             </h2>
 
@@ -317,8 +446,10 @@ export default function App() {
                                 className="
                                     text-5xl
                                     font-black
-                                    text-green-400
                                 "
+                                style={{
+                                    color: graphColor,
+                                }}
                             >
                                 {
                                     values[
@@ -329,33 +460,72 @@ export default function App() {
 
                         </div>
 
-                        {/* Graph */}
+                        {/* GUI / CLI */}
 
-                        <div
-                            className="
-                                bg-zinc-900/80
-                                rounded-3xl
-                                p-6
-                                border
-                                border-zinc-800
-                            "
-                        >
+                        {
+                            mode === 'gui' ? (
 
-                            <h2
-                                className="
-                                    text-2xl
-                                    font-bold
-                                    mb-4
-                                "
-                            >
-                                Visualization
-                            </h2>
+                                <div
+                                    className="
+                                        bg-zinc-900/80
+                                        rounded-3xl
+                                        p-6
+                                        border
+                                        border-zinc-800
+                                    "
+                                >
 
-                            <GraphCanvas
-                                values={values}
-                            />
+                                    <h2 className="text-2xl font-bold mb-4">
+                                        Visualization
+                                    </h2>
 
-                        </div>
+                                    <GraphCanvas
+                                        values={values}
+                                        color={graphColor}
+                                    />
+
+                                </div>
+
+                            ) : (
+
+                                <div
+                                    className="
+                                        bg-zinc-900/80
+                                        rounded-3xl
+                                        p-6
+                                        border
+                                        border-zinc-800
+                                    "
+                                >
+
+                                    <h2 className="text-2xl font-bold mb-4">
+                                        CLI Output
+                                    </h2>
+
+                                    <pre
+                                        className="
+                                            bg-black
+                                            p-4
+                                            rounded-2xl
+                                            overflow-auto
+                                            max-h-[500px]
+                                            text-sm
+                                        "
+                                        style={{
+                                            color: graphColor,
+                                        }}
+                                    >
+                                        {
+                                            values.map(
+                                                (v, i) =>
+                                                    `${i}: ${v}\n`
+                                            )
+                                        }
+                                    </pre>
+
+                                </div>
+                            )
+                        }
 
                     </div>
 
