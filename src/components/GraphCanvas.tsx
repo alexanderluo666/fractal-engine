@@ -10,10 +10,17 @@ export default function GraphCanvas({
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    // 🌌 camera system (better than raw zoom scaling)
+    // 🌌 camera system
     const [zoom, setZoom] = useState(1);
     const [offsetX, setOffsetX] = useState(0);
     const [offsetY, setOffsetY] = useState(0);
+
+    // 🧭 dragging
+    const dragging = useRef(false);
+    const lastMouse = useRef({ x: 0, y: 0 });
+
+    // 🎧 (optional sound hook placeholder)
+    const audioLevel = useRef(0);
 
     useEffect(() => {
 
@@ -28,9 +35,9 @@ export default function GraphCanvas({
 
         const image = ctx.createImageData(w, h);
 
-        const maxIter = 500;
+        const maxIter = 400;
 
-        // 🔥 exponential zoom (this is KEY for fractals)
+        // 🔥 exponential zoom (core fractal behavior)
         const scale = Math.pow(0.92, zoom);
 
         const xmin = -2.5 * scale + offsetX;
@@ -44,17 +51,17 @@ export default function GraphCanvas({
                 const x = xmin + (px / w) * (xmax - xmin);
                 const y = ymin + (py / h) * (ymax - ymin);
 
-                let zx = 0;
-                let zy = 0;
+                let zx = 0, zy = 0;
+                let cx = x, cy = y;
 
-                let cx = x;
-                let cy = y;
-
+                // 🌊 Julia mode
                 if (fractal === 'julia') {
                     zx = x;
                     zy = y;
-                    cx = -0.8;
-                    cy = 0.156;
+
+                    // 🎛 animated morph (VERY subtle chaos)
+                    cx = -0.8 + Math.sin(Date.now() * 0.0003) * 0.1;
+                    cy = 0.156 + Math.cos(Date.now() * 0.0002) * 0.1;
                 }
 
                 let i = 0;
@@ -85,21 +92,13 @@ export default function GraphCanvas({
 
                 const t = i / maxIter;
 
-                if (i === maxIter) {
-                    image.data[idx] = 0;
-                    image.data[idx + 1] = 0;
-                    image.data[idx + 2] = 0;
-                    image.data[idx + 3] = 255;
-                } else {
+                // 🌈 improved contrast coloring
+                const glow = Math.floor(255 * Math.pow(t, 0.6));
 
-                    // 🌈 better contrast color palette
-                    const c = Math.floor(255 * t);
-
-                    image.data[idx] = 20 + c;
-                    image.data[idx + 1] = Math.floor(80 + 120 * (1 - t));
-                    image.data[idx + 2] = Math.floor(255 * (1 - t));
-                    image.data[idx + 3] = 255;
-                }
+                image.data[idx] = glow;
+                image.data[idx + 1] = Math.floor(glow * (0.4 + audioLevel.current));
+                image.data[idx + 2] = Math.floor(255 * (1 - t));
+                image.data[idx + 3] = 255;
             }
         }
 
@@ -107,57 +106,112 @@ export default function GraphCanvas({
 
     }, [fractal, zoom, offsetX, offsetY]);
 
-    return (
-        <div className="space-y-3">
+    // 🖱️ wheel zoom (CENTERED ON CURSOR)
+    function onWheel(e: React.WheelEvent) {
 
-            {/* 🌌 Controls */}
-            <div className="flex gap-2 flex-wrap">
+        e.preventDefault();
 
-                <button
-                    onClick={() => setZoom(z => z * 1.25)}
-                    className="px-3 py-2 bg-zinc-800 rounded"
-                >
-                    Zoom In
-                </button>
+        const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
 
-                <button
-                    onClick={() => setZoom(z => z / 1.25)}
-                    className="px-3 py-2 bg-zinc-800 rounded"
-                >
-                    Zoom Out
-                </button>
+        const mouseX = (e.clientX - rect.left) / rect.width;
+        const mouseY = (e.clientY - rect.top) / rect.height;
 
-                <button
-                    onClick={() => {
-                        setZoom(1);
-                        setOffsetX(0);
-                        setOffsetY(0);
-                    }}
-                    className="px-3 py-2 bg-zinc-800 rounded"
-                >
-                    Reset
-                </button>
+        const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
 
-                <div className="text-zinc-400 px-2 flex items-center">
-                    zoom: {zoom.toFixed(2)}x
-                </div>
+        setZoom(z => z * zoomFactor);
 
-            </div>
+        // 🔥 keep zoom centered on cursor
+        setOffsetX(x =>
+            x + (mouseX - 0.5) * (1 - zoomFactor) * 2
+        );
 
-            {/* 🧠 Canvas */}
+        setOffsetY(y =>
+            y + (mouseY - 0.5) * (1 - zoomFactor) * 2
+        );
+    }
+
+    // 🖱️ drag navigation
+    function onMouseDown(e: React.MouseEvent) {
+        dragging.current = true;
+        lastMouse.current = { x: e.clientX, y: e.clientY };
+    }
+
+    function onMouseUp() {
+        dragging.current = false;
+    }
+
+    function onMouseMove(e: React.MouseEvent) {
+
+        if (!dragging.current) return;
+
+        const dx = e.clientX - lastMouse.current.x;
+        const dy = e.clientY - lastMouse.current.y;
+
+        setOffsetX(x => x - dx * 0.005 / zoom);
+        setOffsetY(y => y - dy * 0.005 / zoom);
+
+        lastMouse.current = {
+            x: e.clientX,
+            y: e.clientY,
+        };
+    }
+
+    /* =========================
+        🌳 FRACTAL TREE
+    ========================= */
+
+    if (fractal === 'tree') {
+
+        return (
             <canvas
                 ref={canvasRef}
                 width={1200}
                 height={800}
-                className="w-full rounded-xl border border-zinc-800"
-                onWheel={(e) => {
-                    e.preventDefault();
+                className="w-full border rounded-xl border-zinc-800"
+                onWheel={onWheel}
+            />
+        );
+    }
 
-                    const factor =
-                        e.deltaY < 0 ? 1.12 : 0.88;
+    return (
+        <div className="space-y-3">
 
-                    setZoom(z => z * factor);
-                }}
+            {/* controls */}
+            <div className="flex gap-2 flex-wrap text-sm">
+
+                <button onClick={() => setZoom(z => z * 1.3)} className="px-3 py-2 bg-zinc-800 rounded">
+                    Zoom In
+                </button>
+
+                <button onClick={() => setZoom(z => z / 1.3)} className="px-3 py-2 bg-zinc-800 rounded">
+                    Zoom Out
+                </button>
+
+                <button onClick={() => {
+                    setZoom(1);
+                    setOffsetX(0);
+                    setOffsetY(0);
+                }} className="px-3 py-2 bg-zinc-800 rounded">
+                    Reset
+                </button>
+
+                <div className="text-zinc-400 px-2">
+                    zoom {zoom.toFixed(2)}x
+                </div>
+
+            </div>
+
+            {/* canvas */}
+            <canvas
+                ref={canvasRef}
+                width={1200}
+                height={800}
+                className="w-full rounded-xl border border-zinc-800 cursor-grab active:cursor-grabbing"
+                onWheel={onWheel}
+                onMouseDown={onMouseDown}
+                onMouseUp={onMouseUp}
+                onMouseLeave={onMouseUp}
+                onMouseMove={onMouseMove}
             />
         </div>
     );
