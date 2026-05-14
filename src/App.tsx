@@ -8,29 +8,36 @@ type FractalType =
     | 'mandelbrot'
     | 'julia'
     | 'burning'
-    | 'tricorn'
-    | 'tree';
+    | 'tricorn';
 
 export default function App() {
 
     const canvasRef =
         useRef<HTMLCanvasElement | null>(null);
 
+    const animationRef =
+        useRef<number>(0);
+
+    const zoomExpRef =
+        useRef(0);
+
+    const xRef =
+        useRef(-0.5);
+
+    const yRef =
+        useRef(0);
+
+    const draggingRef =
+        useRef(false);
+
+    const lastMouseRef =
+        useRef({ x: 0, y: 0 });
+
     const [type, setType] =
         useState<FractalType>('mandelbrot');
 
-    // logarithmic zoom
-    const zoomExpRef = useRef(0);
-
-    // world coordinates
-    const xRef = useRef(-0.5);
-    const yRef = useRef(0);
-
-    // rerender trigger
-    const dirtyRef = useRef(true);
-
     // =====================================
-    // SAFE TYPE HANDLER
+    // SAFE TYPE CHANGE
     // =====================================
 
     function handleTypeChange(
@@ -43,9 +50,14 @@ export default function App() {
         setType(value);
     }
 
+    // =====================================
+    // MAIN EFFECT
+    // =====================================
+
     useEffect(() => {
 
-        const canvas = canvasRef.current;
+        const canvas =
+            canvasRef.current;
 
         if (!canvas) return;
 
@@ -54,14 +66,19 @@ export default function App() {
 
         if (!ctx) return;
 
+        // safe aliases
+        const safeCanvas = canvas;
+        const safeCtx = ctx;
+
         const W = 1000;
         const H = 700;
 
-        canvas.width = W;
-        canvas.height = H;
+        safeCanvas.width = W;
+        safeCanvas.height = H;
 
         // =====================================
-        // PERFORMANCE
+        // LOWER INTERNAL RESOLUTION
+        // FOR SPEED
         // =====================================
 
         const SCALE = 2;
@@ -73,7 +90,7 @@ export default function App() {
             Math.floor(H / SCALE);
 
         const imageData =
-            ctx.createImageData(RW, RH);
+            safeCtx.createImageData(RW, RH);
 
         const pixels =
             imageData.data;
@@ -82,36 +99,42 @@ export default function App() {
         // INPUT
         // =====================================
 
-        let dragging = false;
+        function onMouseDown(
+            e: MouseEvent
+        ) {
 
-        let lastX = 0;
-        let lastY = 0;
+            draggingRef.current = true;
 
-        canvas.onmousedown = (e) => {
+            lastMouseRef.current = {
+                x: e.clientX,
+                y: e.clientY
+            };
+        }
 
-            dragging = true;
+        function onMouseUp() {
 
-            lastX = e.clientX;
-            lastY = e.clientY;
-        };
+            draggingRef.current = false;
+        }
 
-        canvas.onmouseup = () => {
-            dragging = false;
-        };
+        function onMouseMove(
+            e: MouseEvent
+        ) {
 
-        canvas.onmouseleave = () => {
-            dragging = false;
-        };
-
-        canvas.onmousemove = (e) => {
-
-            if (!dragging) return;
+            if (!draggingRef.current)
+                return;
 
             const dx =
-                e.clientX - lastX;
+                e.clientX
+                - lastMouseRef.current.x;
 
             const dy =
-                e.clientY - lastY;
+                e.clientY
+                - lastMouseRef.current.y;
+
+            lastMouseRef.current = {
+                x: e.clientX,
+                y: e.clientY
+            };
 
             const scale =
                 Math.exp(-zoomExpRef.current);
@@ -121,29 +144,22 @@ export default function App() {
 
             yRef.current -=
                 dy * scale * 0.004;
+        }
 
-            lastX = e.clientX;
-            lastY = e.clientY;
-
-            dirtyRef.current = true;
-        };
-
-        // =====================================
-        // INFINITE ZOOM
-        // =====================================
-
-        canvas.onwheel = (e) => {
+        function onWheel(
+            e: WheelEvent
+        ) {
 
             e.preventDefault();
 
-            // fixed wheel direction
+            // fixed zoom direction
             const delta =
                 e.deltaY > 0
                     ? -0.25
                     : 0.25;
 
             const rect =
-                canvas.getBoundingClientRect();
+                safeCanvas.getBoundingClientRect();
 
             const mx =
                 e.clientX - rect.left;
@@ -182,9 +198,28 @@ export default function App() {
                 (my - H / 2)
                 * scaleAfter
                 * 0.004;
+        }
 
-            dirtyRef.current = true;
-        };
+        safeCanvas.addEventListener(
+            'mousedown',
+            onMouseDown
+        );
+
+        window.addEventListener(
+            'mouseup',
+            onMouseUp
+        );
+
+        window.addEventListener(
+            'mousemove',
+            onMouseMove
+        );
+
+        safeCanvas.addEventListener(
+            'wheel',
+            onWheel,
+            { passive: false }
+        );
 
         // =====================================
         // FRACTALS
@@ -202,7 +237,7 @@ export default function App() {
 
             while (
                 zx*zx + zy*zy < 4 &&
-                i < 160
+                i < 180
             ) {
 
                 const xt =
@@ -234,7 +269,7 @@ export default function App() {
 
             while (
                 zx*zx + zy*zy < 4 &&
-                i < 160
+                i < 180
             ) {
 
                 const xt =
@@ -263,7 +298,7 @@ export default function App() {
 
             while (
                 zx*zx + zy*zy < 4 &&
-                i < 160
+                i < 180
             ) {
 
                 zx = Math.abs(zx);
@@ -295,7 +330,7 @@ export default function App() {
 
             while (
                 zx*zx + zy*zy < 4 &&
-                i < 160
+                i < 180
             ) {
 
                 const xt =
@@ -313,12 +348,12 @@ export default function App() {
         }
 
         // =====================================
-        // COLORS
+        // COLOR PALETTE
         // =====================================
 
         function palette(i:number) {
 
-            const t = i / 160;
+            const t = i / 180;
 
             const r =
                 127 +
@@ -343,104 +378,25 @@ export default function App() {
         }
 
         // =====================================
-        // TREE FRACTAL
-        // =====================================
-
-        function drawTree(
-            x:number,
-            y:number,
-            len:number,
-            angle:number,
-            depth:number
-        ) {
-
-            if (depth <= 0) return;
-
-            const x2 =
-                x + Math.cos(angle) * len;
-
-            const y2 =
-                y + Math.sin(angle) * len;
-
-            ctx.strokeStyle =
-                `hsl(${depth * 24},100%,60%)`;
-
-            ctx.lineWidth =
-                depth * 0.7;
-
-            ctx.beginPath();
-
-            ctx.moveTo(x,y);
-
-            ctx.lineTo(x2,y2);
-
-            ctx.stroke();
-
-            drawTree(
-                x2,
-                y2,
-                len * 0.72,
-                angle - 0.4,
-                depth - 1
-            );
-
-            drawTree(
-                x2,
-                y2,
-                len * 0.72,
-                angle + 0.4,
-                depth - 1
-            );
-        }
-
-        // =====================================
-        // MAIN RENDER
+        // RENDER LOOP
         // =====================================
 
         function render() {
 
-            if (!dirtyRef.current) {
-
-                requestAnimationFrame(render);
-
-                return;
-            }
-
-            dirtyRef.current = false;
-
-            ctx.fillStyle = 'black';
-
-            ctx.fillRect(0,0,W,H);
-
-            // =================================
-            // TREE
-            // =================================
-
-            if (type === 'tree') {
-
-                drawTree(
-                    W / 2,
-                    H - 50,
-                    140,
-                    -Math.PI / 2,
-                    12
-                );
-
-                requestAnimationFrame(render);
-
-                return;
-            }
-
-            // =================================
-            // FRACTAL RENDER
-            // =================================
-
             const scale =
                 Math.exp(-zoomExpRef.current);
 
-            for (let py=0; py<RH; py++) {
+            for (
+                let py = 0;
+                py < RH;
+                py++
+            ) {
 
-                for (let px=0; px<RW; px++) {
+                for (
+                    let px = 0;
+                    px < RW;
+                    px++
+                ) {
 
                     const x =
                         (px - RW/2)
@@ -456,20 +412,36 @@ export default function App() {
 
                     let iter = 0;
 
-                    if (type === 'mandelbrot') {
-                        iter = mandelbrot(x,y);
+                    if (
+                        type === 'mandelbrot'
+                    ) {
+
+                        iter =
+                            mandelbrot(x,y);
                     }
 
-                    else if (type === 'julia') {
-                        iter = julia(x,y);
+                    else if (
+                        type === 'julia'
+                    ) {
+
+                        iter =
+                            julia(x,y);
                     }
 
-                    else if (type === 'burning') {
-                        iter = burning(x,y);
+                    else if (
+                        type === 'burning'
+                    ) {
+
+                        iter =
+                            burning(x,y);
                     }
 
-                    else if (type === 'tricorn') {
-                        iter = tricorn(x,y);
+                    else if (
+                        type === 'tricorn'
+                    ) {
+
+                        iter =
+                            tricorn(x,y);
                     }
 
                     const [r,g,b] =
@@ -484,10 +456,6 @@ export default function App() {
                     pixels[idx + 3] = 255;
                 }
             }
-
-            // =================================
-            // UPSCALE
-            // =================================
 
             const temp =
                 document.createElement('canvas');
@@ -506,9 +474,16 @@ export default function App() {
                 0
             );
 
-            ctx.imageSmoothingEnabled = false;
+            safeCtx.imageSmoothingEnabled = false;
 
-            ctx.drawImage(
+            safeCtx.clearRect(
+                0,
+                0,
+                W,
+                H
+            );
+
+            safeCtx.drawImage(
                 temp,
                 0,
                 0,
@@ -520,10 +495,42 @@ export default function App() {
                 H
             );
 
-            requestAnimationFrame(render);
+            animationRef.current =
+                requestAnimationFrame(render);
         }
 
         render();
+
+        // =====================================
+        // CLEANUP
+        // =====================================
+
+        return () => {
+
+            cancelAnimationFrame(
+                animationRef.current
+            );
+
+            safeCanvas.removeEventListener(
+                'mousedown',
+                onMouseDown
+            );
+
+            window.removeEventListener(
+                'mouseup',
+                onMouseUp
+            );
+
+            window.removeEventListener(
+                'mousemove',
+                onMouseMove
+            );
+
+            safeCanvas.removeEventListener(
+                'wheel',
+                onWheel
+            );
+        };
 
     }, [type]);
 
@@ -579,10 +586,6 @@ export default function App() {
                         Tricorn
                     </option>
 
-                    <option value="tree">
-                        Tree
-                    </option>
-
                 </select>
 
             </div>
@@ -593,8 +596,8 @@ export default function App() {
                     border
                     border-zinc-800
                     rounded
-                    block
                     shadow-2xl
+                    cursor-grab
                 "
             />
 
