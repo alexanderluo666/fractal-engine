@@ -1,5 +1,5 @@
 # Aetherscope
-+ Played at [aethorscope](alexanderluo666.github.io/fractal-engine).
++ Played at [Aethorscope](alexanderluo666.github.io/fractal-engine).
 
 ## Inspiration
 + Inspired by video on youtube by BriTheMathGuy: [The Number That Equals Its Own Cosine](https://www.youtube.com/watch?v=wilJNoc7Ubs).
