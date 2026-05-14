@@ -10,3 +10,10 @@
 ## Resources and References
 + [Fractal Derivative In Wikipedia](https://en.wikipedia.org/wiki/Fractal_derivative).
 + [Fractal In Wikipedia](https://en.wikipedia.org/wiki/Fractal).
+
+## Features
++ Fractals display with zoom functions.
++ CLI screensaver of a fractal(Mandelbrot Set) runs using in the fractal-engine folder:
+``` bash
+node src/cli/fractal-screensaver.js
+```
