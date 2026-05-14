@@ -1,4 +1,4 @@
-# fractal-engine
+# Fractal-engine
 + Played at [fractal engine](alexanderluo666.github.io/fractal-engine)
 
 ## Inspiration
