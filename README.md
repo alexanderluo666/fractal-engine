@@ -14,7 +14,4 @@
 
 ## Features
 + Fractals display with zoom functions.
-+ CLI screensaver of a fractal(Mandelbrot Set) runs using in the fractal-engine folder:
-``` bash
-node src/cli/fractal-screensaver.js
-```
+
