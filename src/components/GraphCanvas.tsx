@@ -1,13 +1,16 @@
-import { useEffect, useRef } from 'react';
+import {
+    useEffect,
+    useRef,
+} from 'react';
+
+import Complex from '../math/Complex';
 
 type Props = {
-    values: number[];
-    color: string;
+    fractal: string;
 };
 
 export default function GraphCanvas({
-    values,
-    color,
+    fractal,
 }: Props) {
 
     const canvasRef =
@@ -15,7 +18,8 @@ export default function GraphCanvas({
 
     useEffect(() => {
 
-        const canvas = canvasRef.current;
+        const canvas =
+            canvasRef.current;
 
         if (!canvas) return;
 
@@ -24,135 +28,218 @@ export default function GraphCanvas({
 
         if (!ctx) return;
 
-        const width = canvas.width;
-        const height = canvas.height;
+        const width =
+            canvas.width;
 
-        // Background
+        const height =
+            canvas.height;
 
-        ctx.clearRect(
-            0,
-            0,
-            width,
-            height
-        );
+        const image =
+            ctx.createImageData(
+                width,
+                height
+            );
 
-        ctx.fillStyle = '#090909';
+        const maxIterations = 300;
 
-        ctx.fillRect(
-            0,
-            0,
-            width,
-            height
-        );
+        const xmin = -2.5;
+        const xmax = 1.5;
 
-        // Grid
-
-        ctx.strokeStyle = '#181818';
+        const ymin = -1.5;
+        const ymax = 1.5;
 
         for (
-            let x = 0;
-            x < width;
-            x += 50
+            let px = 0;
+            px < width;
+            px++
         ) {
 
-            ctx.beginPath();
+            for (
+                let py = 0;
+                py < height;
+                py++
+            ) {
 
-            ctx.moveTo(x, 0);
+                const x =
+                    xmin +
+                    (px / width) *
+                    (xmax - xmin);
 
-            ctx.lineTo(x, height);
+                const y =
+                    ymin +
+                    (py / height) *
+                    (ymax - ymin);
 
-            ctx.stroke();
-        }
+                let zx = 0;
+                let zy = 0;
 
-        for (
-            let y = 0;
-            y < height;
-            y += 50
-        ) {
+                let cx = x;
+                let cy = y;
 
-            ctx.beginPath();
+                // Julia
 
-            ctx.moveTo(0, y);
+                if (
+                    fractal === 'julia'
+                ) {
 
-            ctx.lineTo(width, y);
+                    zx = x;
+                    zy = y;
 
-            ctx.stroke();
-        }
+                    cx = -0.8;
+                    cy = 0.156;
+                }
 
-        // Axes
+                let iteration = 0;
 
-        ctx.strokeStyle = '#333';
+                while (
+                    zx * zx +
+                    zy * zy < 4 &&
+                    iteration < maxIterations
+                ) {
 
-        ctx.beginPath();
+                    let xtemp;
 
-        ctx.moveTo(40, 0);
+                    switch (fractal) {
 
-        ctx.lineTo(
-            40,
-            height - 30
-        );
+                        case 'burningShip':
 
-        ctx.lineTo(
-            width,
-            height - 30
-        );
+                            xtemp =
+                                zx * zx -
+                                zy * zy +
+                                cx;
 
-        ctx.stroke();
+                            zy =
+                                Math.abs(
+                                    2 *
+                                    zx *
+                                    zy
+                                ) + cy;
 
-        // Graph
+                            zx =
+                                Math.abs(
+                                    xtemp
+                                );
 
-        ctx.strokeStyle = color;
+                            break;
 
-        ctx.lineWidth = 2;
+                        case 'tricorn':
 
-        ctx.beginPath();
+                            xtemp =
+                                zx * zx -
+                                zy * zy +
+                                cx;
 
-        values.forEach((
-            value,
-            index
-        ) => {
+                            zy =
+                                -2 *
+                                zx *
+                                zy +
+                                cy;
 
-            const x =
-                40 +
-                (
-                    index /
-                    (values.length - 1)
-                ) *
-                (width - 60);
+                            zx = xtemp;
 
-            const normalized =
-                (value + 4) / 8;
+                            break;
 
-            const y =
-                (height - 30) -
-                normalized *
-                (height - 60);
+                        default:
 
-            if (index === 0) {
+                            xtemp =
+                                zx * zx -
+                                zy * zy +
+                                cx;
 
-                ctx.moveTo(x, y);
+                            zy =
+                                2 *
+                                zx *
+                                zy +
+                                cy;
 
-            } else {
+                            zx = xtemp;
+                    }
 
-                ctx.lineTo(x, y);
+                    iteration++;
+
+                }
+
+                const index =
+                    (
+                        py * width +
+                        px
+                    ) * 4;
+
+                if (
+                    iteration ===
+                    maxIterations
+                ) {
+
+                    image.data[index] = 0;
+                    image.data[index + 1] = 0;
+                    image.data[index + 2] = 0;
+                    image.data[index + 3] = 255;
+
+                } else {
+
+                    const t =
+                        iteration /
+                        maxIterations;
+
+                    // MUCH BETTER COLORS
+
+                    image.data[index] =
+                        Math.floor(
+                            9 *
+                            (1 - t) *
+                            t *
+                            t *
+                            t *
+                            255
+                        );
+
+                    image.data[index + 1] =
+                        Math.floor(
+                            15 *
+                            (1 - t) *
+                            (1 - t) *
+                            t *
+                            t *
+                            255
+                        );
+
+                    image.data[index + 2] =
+                        Math.floor(
+                            8.5 *
+                            (1 - t) *
+                            (1 - t) *
+                            (1 - t) *
+                            t *
+                            255
+                        );
+
+                    image.data[index + 3] = 255;
+
+                }
 
             }
 
-        });
+        }
 
-        ctx.stroke();
+        ctx.putImageData(
+            image,
+            0,
+            0
+        );
 
-    }, [values, color]);
+    }, [fractal]);
 
     return (
 
         <canvas
             ref={canvasRef}
-            width={1000}
-            height={500}
+            width={1200}
+            height={800}
             className="
                 w-full
                 rounded-2xl
+                border
+                border-zinc-800
             "
         />
 
