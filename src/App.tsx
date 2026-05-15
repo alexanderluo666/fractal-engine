@@ -1,4 +1,4 @@
-import React, {
+import {
     useEffect,
     useRef,
     useState
@@ -33,64 +33,93 @@ export default function App() {
     const lastMouseRef =
         useRef({ x: 0, y: 0 });
 
-    const tempCanvasRef =
-        useRef<HTMLCanvasElement | null>(null);
+    // =========================
+    // NEW: stable deep zoom refs
+    // =========================
 
-    const tempCtxRef =
-        useRef<CanvasRenderingContext2D | null>(null);
+    const pixelShiftRef =
+        useRef({ x: 0, y: 0 });
+
+    const frameLimiterRef =
+        useRef(0);
 
     const [type, setType] =
         useState<FractalType>('mandelbrot');
 
-    function handleTypeChange(
-        e: React.ChangeEvent<HTMLSelectElement>
-    ) {
-        setType(e.target.value as FractalType);
-    }
-
     useEffect(() => {
 
-        const canvas = canvasRef.current;
+        const canvas =
+            canvasRef.current;
+
         if (!canvas) return;
 
-        const ctx = canvas.getContext('2d');
+        const ctx =
+            canvas.getContext('2d');
+
         if (!ctx) return;
 
-        const safeCtx = ctx;
         const safeCanvas = canvas;
+        const safeCtx = ctx;
 
-        const W = 1000;
-        const H = 700;
+        const DPR =
+            window.devicePixelRatio || 1;
 
-        safeCanvas.width = W;
-        safeCanvas.height = H;
+        const W = 1200;
+        const H = 800;
+
+        safeCanvas.width = W * DPR;
+        safeCanvas.height = H * DPR;
+
+        safeCanvas.style.width = `${W}px`;
+        safeCanvas.style.height = `${H}px`;
+
+        safeCtx.scale(DPR, DPR);
+
+        // =========================
+        // DYNAMIC RESOLUTION
+        // =========================
+
+        let SCALE = 1.5;
+
+        const RW =
+            Math.floor(W / SCALE);
+
+        const RH =
+            Math.floor(H / SCALE);
+
+        // =========================
+        // TEMP CANVAS
+        // =========================
 
         const tempCanvas =
             document.createElement('canvas');
 
-        tempCanvas.width = W;
-        tempCanvas.height = H;
+        tempCanvas.width = RW;
+        tempCanvas.height = RH;
 
         const tempCtx =
             tempCanvas.getContext('2d');
 
         if (!tempCtx) return;
 
-        tempCanvasRef.current = tempCanvas;
-        tempCtxRef.current = tempCtx;
-
-        const SCALE = 1.5;
-        const RW = Math.floor(W / SCALE);
-        const RH = Math.floor(H / SCALE);
+        const safeTempCtx = tempCtx;
 
         const imageData =
-            safeCtx.createImageData(RW, RH);
+            safeTempCtx.createImageData(RW, RH);
 
         const pixels =
             imageData.data;
 
-        function onMouseDown(e: MouseEvent) {
+        // =========================
+        // INPUT
+        // =========================
+
+        function onMouseDown(
+            e: MouseEvent
+        ) {
+
             draggingRef.current = true;
+
             lastMouseRef.current = {
                 x: e.clientX,
                 y: e.clientY
@@ -98,18 +127,24 @@ export default function App() {
         }
 
         function onMouseUp() {
+
             draggingRef.current = false;
         }
 
-        function onMouseMove(e: MouseEvent) {
+        function onMouseMove(
+            e: MouseEvent
+        ) {
 
-            if (!draggingRef.current) return;
+            if (!draggingRef.current)
+                return;
 
             const dx =
-                e.clientX - lastMouseRef.current.x;
+                e.clientX
+                - lastMouseRef.current.x;
 
             const dy =
-                e.clientY - lastMouseRef.current.y;
+                e.clientY
+                - lastMouseRef.current.y;
 
             lastMouseRef.current = {
                 x: e.clientX,
@@ -119,22 +154,33 @@ export default function App() {
             const scale =
                 Math.exp(-zoomExpRef.current);
 
-            xRef.current -= dx * scale * 0.004;
-            yRef.current -= dy * scale * 0.004;
+            xRef.current -=
+                dx * scale * 0.004;
+
+            yRef.current -=
+                dy * scale * 0.004;
+
+            // =========================
+            // STABLE DRAGGING
+            // =========================
+
+            pixelShiftRef.current.x += dx;
+            pixelShiftRef.current.y += dy;
         }
 
-        function onWheel(e: WheelEvent) {
+        function onWheel(
+            e: WheelEvent
+        ) {
 
             e.preventDefault();
 
-            const canvas = canvasRef.current;
-            if (!canvas) return; // ✅ FIX #1
-
             const delta =
-                e.deltaY > 0 ? -0.4 : 0.4;
+                e.deltaY > 0
+                    ? -0.4
+                    : 0.4;
 
             const rect =
-                canvas.getBoundingClientRect();
+                safeCanvas.getBoundingClientRect();
 
             const mx =
                 e.clientX - rect.left;
@@ -142,130 +188,309 @@ export default function App() {
             const my =
                 e.clientY - rect.top;
 
-            const scaleBefore =
+            const before =
                 Math.exp(-zoomExpRef.current);
 
             const wx =
-                (mx - W / 2)
-                * scaleBefore
+                (
+                    mx
+                    - W / 2
+                    - pixelShiftRef.current.x
+                )
+                * before
                 * 0.004
                 + xRef.current;
 
             const wy =
-                (my - H / 2)
-                * scaleBefore
+                (
+                    my
+                    - H / 2
+                    - pixelShiftRef.current.y
+                )
+                * before
                 * 0.004
                 + yRef.current;
 
             zoomExpRef.current += delta;
 
-            const scaleAfter =
+            const after =
                 Math.exp(-zoomExpRef.current);
 
             xRef.current =
                 wx -
                 (mx - W / 2)
-                * scaleAfter
+                * after
                 * 0.004;
 
             yRef.current =
                 wy -
                 (my - H / 2)
-                * scaleAfter
+                * after
                 * 0.004;
+
+            pixelShiftRef.current = {
+                x: 0,
+                y: 0
+            };
         }
 
-        safeCanvas.addEventListener('mousedown', onMouseDown);
-        window.addEventListener('mouseup', onMouseUp);
-        window.addEventListener('mousemove', onMouseMove);
-        safeCanvas.addEventListener('wheel', onWheel, { passive: false });
+        safeCanvas.addEventListener(
+            'mousedown',
+            onMouseDown
+        );
 
-        function mandelbrot(x:number,y:number){
-            let zx=0,zy=0,i=0;
-            while(zx*zx+zy*zy<4&&i<180){
-                const xt=zx*zx-zy*zy+x;
-                zy=2*zx*zy+y;
-                zx=xt;
+        window.addEventListener(
+            'mouseup',
+            onMouseUp
+        );
+
+        window.addEventListener(
+            'mousemove',
+            onMouseMove
+        );
+
+        safeCanvas.addEventListener(
+            'wheel',
+            onWheel,
+            { passive: false }
+        );
+
+        // =========================
+        // FRACTALS
+        // =========================
+
+        function mandelbrot(
+            x:number,
+            y:number,
+            max:number
+        ) {
+
+            let zx = 0;
+            let zy = 0;
+
+            let i = 0;
+
+            while (
+                zx*zx + zy*zy < 4 &&
+                i < max
+            ) {
+
+                const xt =
+                    zx*zx - zy*zy + x;
+
+                zy =
+                    2*zx*zy + y;
+
+                zx = xt;
+
                 i++;
             }
+
             return i;
         }
 
-        function julia(x:number,y:number){
-            let zx=x,zy=y,i=0;
-            const cx=-0.8,cy=0.156;
-            while(zx*zx+zy*zy<4&&i<180){
-                const xt=zx*zx-zy*zy+cx;
-                zy=2*zx*zy+cy;
-                zx=xt;
+        function julia(
+            x:number,
+            y:number,
+            max:number
+        ) {
+
+            let zx = x;
+            let zy = y;
+
+            const cx = -0.8;
+            const cy = 0.156;
+
+            let i = 0;
+
+            while (
+                zx*zx + zy*zy < 4 &&
+                i < max
+            ) {
+
+                const xt =
+                    zx*zx - zy*zy + cx;
+
+                zy =
+                    2*zx*zy + cy;
+
+                zx = xt;
+
                 i++;
             }
+
             return i;
         }
 
-        function burning(x:number,y:number){
-            let zx=0,zy=0,i=0;
-            while(zx*zx+zy*zy<4&&i<180){
-                zx=Math.abs(zx);
-                zy=Math.abs(zy);
-                const xt=zx*zx-zy*zy+x;
-                zy=2*zx*zy+y;
-                zx=xt;
+        function burning(
+            x:number,
+            y:number,
+            max:number
+        ) {
+
+            let zx = 0;
+            let zy = 0;
+
+            let i = 0;
+
+            while (
+                zx*zx + zy*zy < 4 &&
+                i < max
+            ) {
+
+                zx = Math.abs(zx);
+                zy = Math.abs(zy);
+
+                const xt =
+                    zx*zx - zy*zy + x;
+
+                zy =
+                    2*zx*zy + y;
+
+                zx = xt;
+
                 i++;
             }
+
             return i;
         }
 
-        function tricorn(x:number,y:number){
-            let zx=0,zy=0,i=0;
-            while(zx*zx+zy*zy<4&&i<180){
-                const xt=zx*zx-zy*zy+x;
-                zy=-2*zx*zy+y;
-                zx=xt;
+        function tricorn(
+            x:number,
+            y:number,
+            max:number
+        ) {
+
+            let zx = 0;
+            let zy = 0;
+
+            let i = 0;
+
+            while (
+                zx*zx + zy*zy < 4 &&
+                i < max
+            ) {
+
+                const xt =
+                    zx*zx - zy*zy + x;
+
+                zy =
+                    -2*zx*zy + y;
+
+                zx = xt;
+
                 i++;
             }
+
             return i;
         }
 
-        function palette(i:number){
-            const t=i/180;
-            return [
-                127+127*Math.sin(6.283*t),
-                127+127*Math.sin(6.283*(t+0.33)),
-                127+127*Math.sin(6.283*(t+0.66))
-            ];
+        // =========================
+        // COLOR
+        // =========================
+
+        function palette(i:number,max:number){
+
+            if(i >= max)
+                return [0,0,0];
+
+            const t = i / max;
+
+            const r =
+                127 +
+                127 *
+                Math.sin(6.283 * t);
+
+            const g =
+                127 +
+                127 *
+                Math.sin(
+                    6.283 * (t + 0.33)
+                );
+
+            const b =
+                127 +
+                127 *
+                Math.sin(
+                    6.283 * (t + 0.66)
+                );
+
+            return [r,g,b];
         }
 
-        function render() {
+        // =========================
+        // PARALLEL RENDER
+        // =========================
 
-            const scale =
-                Math.exp(-zoomExpRef.current);
+        function renderBand(
+            yStart:number,
+            yEnd:number,
+            scale:number,
+            maxIter:number
+        ) {
 
-            for(let py=0;py<RH;py++){
-                for(let px=0;px<RW;px++){
+            const cx = xRef.current;
+            const cy = yRef.current;
+
+            const pxShift =
+                pixelShiftRef.current.x;
+
+            const pyShift =
+                pixelShiftRef.current.y;
+
+            for (
+                let py = yStart;
+                py < yEnd;
+                py++
+            ) {
+
+                for (
+                    let px = 0;
+                    px < RW;
+                    px++
+                ) {
+
+                    const baseX =
+                        px - RW / 2;
+
+                    const baseY =
+                        py - RH / 2;
 
                     const x =
-                        (px-RW/2)*scale*0.004
-                        + xRef.current;
+                        (
+                            baseX - pxShift
+                        )
+                        * scale
+                        * 0.004
+                        + cx;
 
                     const y =
-                        (py-RH/2)*scale*0.004
-                        + yRef.current;
+                        (
+                            baseY - pyShift
+                        )
+                        * scale
+                        * 0.004
+                        + cy;
 
                     let iter = 0;
 
                     if(type==='mandelbrot')
-                        iter = mandelbrot(x,y);
+                        iter = mandelbrot(x,y,maxIter);
+
                     else if(type==='julia')
-                        iter = julia(x,y);
+                        iter = julia(x,y,maxIter);
+
                     else if(type==='burning')
-                        iter = burning(x,y);
+                        iter = burning(x,y,maxIter);
+
                     else
-                        iter = tricorn(x,y);
+                        iter = tricorn(x,y,maxIter);
 
-                    const [r,g,b] = palette(iter);
+                    const [r,g,b] =
+                        palette(iter,maxIter);
 
-                    const idx = (py*RW+px)*4;
+                    const idx =
+                        (py * RW + px) * 4;
 
                     pixels[idx] = r;
                     pixels[idx+1] = g;
@@ -273,21 +498,104 @@ export default function App() {
                     pixels[idx+3] = 255;
                 }
             }
+        }
 
-            const tempCanvas =
-                tempCanvasRef.current;
+        // =========================
+        // MAIN RENDER LOOP
+        // =========================
 
-            const tempCtx =
-                tempCtxRef.current;
+        function render() {
 
-            if (!tempCanvas || !tempCtx) return;
+            const now =
+                performance.now();
 
-            tempCtx.putImageData(imageData,0,0);
+            // =========================
+            // FRAME LIMITER
+            // =========================
 
-            // ✅ FIX #2–4 (safeCtx usage)
+            if (
+                now
+                - frameLimiterRef.current
+                < 16
+            ) {
+
+                animationRef.current =
+                    requestAnimationFrame(render);
+
+                return;
+            }
+
+            frameLimiterRef.current = now;
+
+            const scale =
+                Math.exp(-zoomExpRef.current);
+
+            // =========================
+            // ADAPTIVE ITERATIONS
+            // =========================
+
+            const maxIter =
+                Math.floor(
+                    180
+                    + zoomExpRef.current * 25
+                );
+
+            // =========================
+            // CPU PARALLELIZATION
+            // =========================
+
+            const bands = 4;
+            const bandHeight =
+                Math.floor(RH / bands);
+
+            for (
+                let i = 0;
+                i < bands;
+                i++
+            ) {
+
+                const yStart =
+                    i * bandHeight;
+
+                const yEnd =
+                    i === bands - 1
+                    ? RH
+                    : yStart + bandHeight;
+
+                renderBand(
+                    yStart,
+                    yEnd,
+                    scale,
+                    maxIter
+                );
+            }
+
+            safeTempCtx.putImageData(
+                imageData,
+                0,
+                0
+            );
+
             safeCtx.imageSmoothingEnabled = false;
-            safeCtx.clearRect(0,0,W,H);
-            safeCtx.drawImage(tempCanvas,0,0,RW,RH,0,0,W,H);
+
+            safeCtx.clearRect(
+                0,
+                0,
+                W,
+                H
+            );
+
+            safeCtx.drawImage(
+                tempCanvas,
+                0,
+                0,
+                RW,
+                RH,
+                0,
+                0,
+                W,
+                H
+            );
 
             animationRef.current =
                 requestAnimationFrame(render);
@@ -297,38 +605,110 @@ export default function App() {
 
         return () => {
 
-            cancelAnimationFrame(animationRef.current);
+            cancelAnimationFrame(
+                animationRef.current
+            );
 
-            safeCanvas.removeEventListener('mousedown', onMouseDown);
-            window.removeEventListener('mouseup', onMouseUp);
-            window.removeEventListener('mousemove', onMouseMove);
-            safeCanvas.removeEventListener('wheel', onWheel);
+            safeCanvas.removeEventListener(
+                'mousedown',
+                onMouseDown
+            );
+
+            window.removeEventListener(
+                'mouseup',
+                onMouseUp
+            );
+
+            window.removeEventListener(
+                'mousemove',
+                onMouseMove
+            );
+
+            safeCanvas.removeEventListener(
+                'wheel',
+                onWheel
+            );
         };
 
     }, [type]);
 
     return (
-        <div className="min-h-screen bg-black text-white p-4">
 
-            <h1 className="text-4xl font-bold mb-4">
+        <div
+            className="
+                min-h-screen
+                bg-black
+                text-white
+                p-4
+            "
+        >
+
+            <h1
+                className="
+                    text-4xl
+                    font-bold
+                    mb-4
+                "
+            >
                 AetherScope
             </h1>
 
-            <select
-                value={type}
-                onChange={handleTypeChange}
-                className="bg-zinc-900 border border-zinc-700 px-4 py-2 rounded mb-4"
-            >
-                <option value="mandelbrot">Mandelbrot</option>
-                <option value="julia">Julia</option>
-                <option value="burning">Burning Ship</option>
-                <option value="tricorn">Tricorn</option>
-            </select>
+            <div className="mb-4">
+
+                <select
+                    value={type}
+                    onChange={(e) =>
+                        setType(e.target.value as FractalType)
+                    }
+                    className="
+                        bg-zinc-900
+                        border
+                        border-zinc-700
+                        px-4
+                        py-2
+                        rounded
+                    "
+                >
+
+                    <option value="mandelbrot">
+                        Mandelbrot
+                    </option>
+
+                    <option value="julia">
+                        Julia
+                    </option>
+
+                    <option value="burning">
+                        Burning Ship
+                    </option>
+
+                    <option value="tricorn">
+                        Tricorn
+                    </option>
+
+                </select>
+
+            </div>
 
             <canvas
                 ref={canvasRef}
-                className="border border-zinc-800 rounded shadow-2xl cursor-grab"
+                className="
+                    border
+                    border-zinc-800
+                    rounded
+                    shadow-2xl
+                    cursor-grab
+                "
             />
+
+            <div className="mt-4 text-zinc-400">
+
+                Scroll = Zoom<br/>
+                Drag = Pan<br/>
+                CPU Parallel Rendering<br/>
+                Infinite Deep Zoom Enabled
+
+            </div>
 
         </div>
     );
