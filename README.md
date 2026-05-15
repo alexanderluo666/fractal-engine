@@ -1,5 +1,6 @@
 # Aetherscope
 + Played at [Aetherscope](alexanderluo666.github.io/fractal-engine).
++ Disclaimer: The visuals presented in Aetherscope might be triggering to some due to the lighting of the fractals.
 
 ## Inspiration
 + Inspired by video on youtube by BriTheMathGuy: [The Number That Equals Its Own Cosine](https://www.youtube.com/watch?v=wilJNoc7Ubs).
