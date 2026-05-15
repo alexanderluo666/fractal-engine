@@ -50,23 +50,21 @@ export default function App() {
 
     useEffect(() => {
 
-        const canvas =
-            canvasRef.current;
-
+        const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const ctx =
-            canvas.getContext('2d');
-
+        const ctx = canvas.getContext('2d');
         if (!ctx) return;
+
+        const safeCtx = ctx;
+        const safeCanvas = canvas;
 
         const W = 1000;
         const H = 700;
 
-        canvas.width = W;
-        canvas.height = H;
+        safeCanvas.width = W;
+        safeCanvas.height = H;
 
-        // ⚡ create temp canvas ONCE (fix lag spike)
         const tempCanvas =
             document.createElement('canvas');
 
@@ -82,12 +80,11 @@ export default function App() {
         tempCtxRef.current = tempCtx;
 
         const SCALE = 1.5;
-
         const RW = Math.floor(W / SCALE);
         const RH = Math.floor(H / SCALE);
 
         const imageData =
-            ctx.createImageData(RW, RH);
+            safeCtx.createImageData(RW, RH);
 
         const pixels =
             imageData.data;
@@ -130,7 +127,9 @@ export default function App() {
 
             e.preventDefault();
 
-            // 🔥 FIX: stronger zoom response
+            const canvas = canvasRef.current;
+            if (!canvas) return; // ✅ FIX #1
+
             const delta =
                 e.deltaY > 0 ? -0.4 : 0.4;
 
@@ -176,12 +175,10 @@ export default function App() {
                 * 0.004;
         }
 
-        canvas.addEventListener('mousedown', onMouseDown);
+        safeCanvas.addEventListener('mousedown', onMouseDown);
         window.addEventListener('mouseup', onMouseUp);
         window.addEventListener('mousemove', onMouseMove);
-        canvas.addEventListener('wheel', onWheel, {
-            passive: false
-        });
+        safeCanvas.addEventListener('wheel', onWheel, { passive: false });
 
         function mandelbrot(x:number,y:number){
             let zx=0,zy=0,i=0;
@@ -248,51 +245,49 @@ export default function App() {
                 for(let px=0;px<RW;px++){
 
                     const x =
-                        (px-RW/2)
-                        *scale*0.004
-                        +xRef.current;
+                        (px-RW/2)*scale*0.004
+                        + xRef.current;
 
                     const y =
-                        (py-RH/2)
-                        *scale*0.004
-                        +yRef.current;
+                        (py-RH/2)*scale*0.004
+                        + yRef.current;
 
-                    let iter=0;
+                    let iter = 0;
 
                     if(type==='mandelbrot')
-                        iter=mandelbrot(x,y);
+                        iter = mandelbrot(x,y);
                     else if(type==='julia')
-                        iter=julia(x,y);
+                        iter = julia(x,y);
                     else if(type==='burning')
-                        iter=burning(x,y);
+                        iter = burning(x,y);
                     else
-                        iter=tricorn(x,y);
+                        iter = tricorn(x,y);
 
-                    const [r,g,b]=palette(iter);
+                    const [r,g,b] = palette(iter);
 
-                    const idx=(py*RW+px)*4;
+                    const idx = (py*RW+px)*4;
 
-                    pixels[idx]=r;
-                    pixels[idx+1]=g;
-                    pixels[idx+2]=b;
-                    pixels[idx+3]=255;
+                    pixels[idx] = r;
+                    pixels[idx+1] = g;
+                    pixels[idx+2] = b;
+                    pixels[idx+3] = 255;
                 }
             }
 
-            // ⚡ reuse temp canvas (NO recreation = NO lag spikes)
-            const tctx = tempCtxRef.current!;
-            const tempCanvas = tempCanvasRef.current!;
+            const tempCanvas =
+                tempCanvasRef.current;
 
-            tctx.putImageData(imageData,0,0);
+            const tempCtx =
+                tempCtxRef.current;
 
-            ctx.imageSmoothingEnabled=false;
-            ctx.clearRect(0,0,W,H);
+            if (!tempCanvas || !tempCtx) return;
 
-            ctx.drawImage(
-                tempCanvas,
-                0,0,RW,RH,
-                0,0,W,H
-            );
+            tempCtx.putImageData(imageData,0,0);
+
+            // ✅ FIX #2–4 (safeCtx usage)
+            safeCtx.imageSmoothingEnabled = false;
+            safeCtx.clearRect(0,0,W,H);
+            safeCtx.drawImage(tempCanvas,0,0,RW,RH,0,0,W,H);
 
             animationRef.current =
                 requestAnimationFrame(render);
@@ -304,10 +299,10 @@ export default function App() {
 
             cancelAnimationFrame(animationRef.current);
 
-            canvas.removeEventListener('mousedown', onMouseDown);
+            safeCanvas.removeEventListener('mousedown', onMouseDown);
             window.removeEventListener('mouseup', onMouseUp);
             window.removeEventListener('mousemove', onMouseMove);
-            canvas.removeEventListener('wheel', onWheel);
+            safeCanvas.removeEventListener('wheel', onWheel);
         };
 
     }, [type]);
