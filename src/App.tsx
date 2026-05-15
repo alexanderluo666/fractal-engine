@@ -33,26 +33,20 @@ export default function App() {
     const lastMouseRef =
         useRef({ x: 0, y: 0 });
 
+    const tempCanvasRef =
+        useRef<HTMLCanvasElement | null>(null);
+
+    const tempCtxRef =
+        useRef<CanvasRenderingContext2D | null>(null);
+
     const [type, setType] =
         useState<FractalType>('mandelbrot');
-
-    // =====================================
-    // SAFE TYPE CHANGE
-    // =====================================
 
     function handleTypeChange(
         e: React.ChangeEvent<HTMLSelectElement>
     ) {
-
-        const value =
-            e.target.value as FractalType;
-
-        setType(value);
+        setType(e.target.value as FractalType);
     }
-
-    // =====================================
-    // MAIN EFFECT
-    // =====================================
 
     useEffect(() => {
 
@@ -66,45 +60,40 @@ export default function App() {
 
         if (!ctx) return;
 
-        // safe aliases
-        const safeCanvas = canvas;
-        const safeCtx = ctx;
-
         const W = 1000;
         const H = 700;
 
-        safeCanvas.width = W;
-        safeCanvas.height = H;
+        canvas.width = W;
+        canvas.height = H;
 
-        // =====================================
-        // LOWER INTERNAL RESOLUTION
-        // FOR SPEED
-        // =====================================
+        // ⚡ create temp canvas ONCE (fix lag spike)
+        const tempCanvas =
+            document.createElement('canvas');
 
-        const SCALE = 2;
+        tempCanvas.width = W;
+        tempCanvas.height = H;
 
-        const RW =
-            Math.floor(W / SCALE);
+        const tempCtx =
+            tempCanvas.getContext('2d');
 
-        const RH =
-            Math.floor(H / SCALE);
+        if (!tempCtx) return;
+
+        tempCanvasRef.current = tempCanvas;
+        tempCtxRef.current = tempCtx;
+
+        const SCALE = 1.5;
+
+        const RW = Math.floor(W / SCALE);
+        const RH = Math.floor(H / SCALE);
 
         const imageData =
-            safeCtx.createImageData(RW, RH);
+            ctx.createImageData(RW, RH);
 
         const pixels =
             imageData.data;
 
-        // =====================================
-        // INPUT
-        // =====================================
-
-        function onMouseDown(
-            e: MouseEvent
-        ) {
-
+        function onMouseDown(e: MouseEvent) {
             draggingRef.current = true;
-
             lastMouseRef.current = {
                 x: e.clientX,
                 y: e.clientY
@@ -112,24 +101,18 @@ export default function App() {
         }
 
         function onMouseUp() {
-
             draggingRef.current = false;
         }
 
-        function onMouseMove(
-            e: MouseEvent
-        ) {
+        function onMouseMove(e: MouseEvent) {
 
-            if (!draggingRef.current)
-                return;
+            if (!draggingRef.current) return;
 
             const dx =
-                e.clientX
-                - lastMouseRef.current.x;
+                e.clientX - lastMouseRef.current.x;
 
             const dy =
-                e.clientY
-                - lastMouseRef.current.y;
+                e.clientY - lastMouseRef.current.y;
 
             lastMouseRef.current = {
                 x: e.clientX,
@@ -139,27 +122,20 @@ export default function App() {
             const scale =
                 Math.exp(-zoomExpRef.current);
 
-            xRef.current -=
-                dx * scale * 0.004;
-
-            yRef.current -=
-                dy * scale * 0.004;
+            xRef.current -= dx * scale * 0.004;
+            yRef.current -= dy * scale * 0.004;
         }
 
-        function onWheel(
-            e: WheelEvent
-        ) {
+        function onWheel(e: WheelEvent) {
 
             e.preventDefault();
 
-            // fixed zoom direction
+            // 🔥 FIX: stronger zoom response
             const delta =
-                e.deltaY > 0
-                    ? -0.25
-                    : 0.25;
+                e.deltaY > 0 ? -0.4 : 0.4;
 
             const rect =
-                safeCanvas.getBoundingClientRect();
+                canvas.getBoundingClientRect();
 
             const mx =
                 e.clientX - rect.left;
@@ -200,299 +176,122 @@ export default function App() {
                 * 0.004;
         }
 
-        safeCanvas.addEventListener(
-            'mousedown',
-            onMouseDown
-        );
+        canvas.addEventListener('mousedown', onMouseDown);
+        window.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('mousemove', onMouseMove);
+        canvas.addEventListener('wheel', onWheel, {
+            passive: false
+        });
 
-        window.addEventListener(
-            'mouseup',
-            onMouseUp
-        );
-
-        window.addEventListener(
-            'mousemove',
-            onMouseMove
-        );
-
-        safeCanvas.addEventListener(
-            'wheel',
-            onWheel,
-            { passive: false }
-        );
-
-        // =====================================
-        // FRACTALS
-        // =====================================
-
-        function mandelbrot(
-            x:number,
-            y:number
-        ) {
-
-            let zx = 0;
-            let zy = 0;
-
-            let i = 0;
-
-            while (
-                zx*zx + zy*zy < 4 &&
-                i < 180
-            ) {
-
-                const xt =
-                    zx*zx - zy*zy + x;
-
-                zy =
-                    2*zx*zy + y;
-
-                zx = xt;
-
+        function mandelbrot(x:number,y:number){
+            let zx=0,zy=0,i=0;
+            while(zx*zx+zy*zy<4&&i<180){
+                const xt=zx*zx-zy*zy+x;
+                zy=2*zx*zy+y;
+                zx=xt;
                 i++;
             }
-
             return i;
         }
 
-        function julia(
-            x:number,
-            y:number
-        ) {
-
-            let zx = x;
-            let zy = y;
-
-            const cx = -0.8;
-            const cy = 0.156;
-
-            let i = 0;
-
-            while (
-                zx*zx + zy*zy < 4 &&
-                i < 180
-            ) {
-
-                const xt =
-                    zx*zx - zy*zy + cx;
-
-                zy =
-                    2*zx*zy + cy;
-
-                zx = xt;
-
+        function julia(x:number,y:number){
+            let zx=x,zy=y,i=0;
+            const cx=-0.8,cy=0.156;
+            while(zx*zx+zy*zy<4&&i<180){
+                const xt=zx*zx-zy*zy+cx;
+                zy=2*zx*zy+cy;
+                zx=xt;
                 i++;
             }
-
             return i;
         }
 
-        function burning(
-            x:number,
-            y:number
-        ) {
-
-            let zx = 0;
-            let zy = 0;
-
-            let i = 0;
-
-            while (
-                zx*zx + zy*zy < 4 &&
-                i < 180
-            ) {
-
-                zx = Math.abs(zx);
-                zy = Math.abs(zy);
-
-                const xt =
-                    zx*zx - zy*zy + x;
-
-                zy =
-                    2*zx*zy + y;
-
-                zx = xt;
-
+        function burning(x:number,y:number){
+            let zx=0,zy=0,i=0;
+            while(zx*zx+zy*zy<4&&i<180){
+                zx=Math.abs(zx);
+                zy=Math.abs(zy);
+                const xt=zx*zx-zy*zy+x;
+                zy=2*zx*zy+y;
+                zx=xt;
                 i++;
             }
-
             return i;
         }
 
-        function tricorn(
-            x:number,
-            y:number
-        ) {
-
-            let zx = 0;
-            let zy = 0;
-
-            let i = 0;
-
-            while (
-                zx*zx + zy*zy < 4 &&
-                i < 180
-            ) {
-
-                const xt =
-                    zx*zx - zy*zy + x;
-
-                zy =
-                    -2*zx*zy + y;
-
-                zx = xt;
-
+        function tricorn(x:number,y:number){
+            let zx=0,zy=0,i=0;
+            while(zx*zx+zy*zy<4&&i<180){
+                const xt=zx*zx-zy*zy+x;
+                zy=-2*zx*zy+y;
+                zx=xt;
                 i++;
             }
-
             return i;
         }
 
-        // =====================================
-        // COLOR PALETTE
-        // =====================================
-
-        function palette(i:number) {
-
-            const t = i / 180;
-
-            const r =
-                127 +
-                127 *
-                Math.sin(6.283 * t);
-
-            const g =
-                127 +
-                127 *
-                Math.sin(
-                    6.283 * (t + 0.33)
-                );
-
-            const b =
-                127 +
-                127 *
-                Math.sin(
-                    6.283 * (t + 0.66)
-                );
-
-            return [r,g,b];
+        function palette(i:number){
+            const t=i/180;
+            return [
+                127+127*Math.sin(6.283*t),
+                127+127*Math.sin(6.283*(t+0.33)),
+                127+127*Math.sin(6.283*(t+0.66))
+            ];
         }
-
-        // =====================================
-        // RENDER LOOP
-        // =====================================
 
         function render() {
 
             const scale =
                 Math.exp(-zoomExpRef.current);
 
-            for (
-                let py = 0;
-                py < RH;
-                py++
-            ) {
-
-                for (
-                    let px = 0;
-                    px < RW;
-                    px++
-                ) {
+            for(let py=0;py<RH;py++){
+                for(let px=0;px<RW;px++){
 
                     const x =
-                        (px - RW/2)
-                        * scale
-                        * 0.004
-                        + xRef.current;
+                        (px-RW/2)
+                        *scale*0.004
+                        +xRef.current;
 
                     const y =
-                        (py - RH/2)
-                        * scale
-                        * 0.004
-                        + yRef.current;
+                        (py-RH/2)
+                        *scale*0.004
+                        +yRef.current;
 
-                    let iter = 0;
+                    let iter=0;
 
-                    if (
-                        type === 'mandelbrot'
-                    ) {
+                    if(type==='mandelbrot')
+                        iter=mandelbrot(x,y);
+                    else if(type==='julia')
+                        iter=julia(x,y);
+                    else if(type==='burning')
+                        iter=burning(x,y);
+                    else
+                        iter=tricorn(x,y);
 
-                        iter =
-                            mandelbrot(x,y);
-                    }
+                    const [r,g,b]=palette(iter);
 
-                    else if (
-                        type === 'julia'
-                    ) {
+                    const idx=(py*RW+px)*4;
 
-                        iter =
-                            julia(x,y);
-                    }
-
-                    else if (
-                        type === 'burning'
-                    ) {
-
-                        iter =
-                            burning(x,y);
-                    }
-
-                    else if (
-                        type === 'tricorn'
-                    ) {
-
-                        iter =
-                            tricorn(x,y);
-                    }
-
-                    const [r,g,b] =
-                        palette(iter);
-
-                    const idx =
-                        (py * RW + px) * 4;
-
-                    pixels[idx] = r;
-                    pixels[idx + 1] = g;
-                    pixels[idx + 2] = b;
-                    pixels[idx + 3] = 255;
+                    pixels[idx]=r;
+                    pixels[idx+1]=g;
+                    pixels[idx+2]=b;
+                    pixels[idx+3]=255;
                 }
             }
 
-            const temp =
-                document.createElement('canvas');
+            // ⚡ reuse temp canvas (NO recreation = NO lag spikes)
+            const tctx = tempCtxRef.current!;
+            const tempCanvas = tempCanvasRef.current!;
 
-            temp.width = RW;
-            temp.height = RH;
+            tctx.putImageData(imageData,0,0);
 
-            const tctx =
-                temp.getContext('2d');
+            ctx.imageSmoothingEnabled=false;
+            ctx.clearRect(0,0,W,H);
 
-            if (!tctx) return;
-
-            tctx.putImageData(
-                imageData,
-                0,
-                0
-            );
-
-            safeCtx.imageSmoothingEnabled = false;
-
-            safeCtx.clearRect(
-                0,
-                0,
-                W,
-                H
-            );
-
-            safeCtx.drawImage(
-                temp,
-                0,
-                0,
-                RW,
-                RH,
-                0,
-                0,
-                W,
-                H
+            ctx.drawImage(
+                tempCanvas,
+                0,0,RW,RH,
+                0,0,W,H
             );
 
             animationRef.current =
@@ -501,113 +300,40 @@ export default function App() {
 
         render();
 
-        // =====================================
-        // CLEANUP
-        // =====================================
-
         return () => {
 
-            cancelAnimationFrame(
-                animationRef.current
-            );
+            cancelAnimationFrame(animationRef.current);
 
-            safeCanvas.removeEventListener(
-                'mousedown',
-                onMouseDown
-            );
-
-            window.removeEventListener(
-                'mouseup',
-                onMouseUp
-            );
-
-            window.removeEventListener(
-                'mousemove',
-                onMouseMove
-            );
-
-            safeCanvas.removeEventListener(
-                'wheel',
-                onWheel
-            );
+            canvas.removeEventListener('mousedown', onMouseDown);
+            window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('mousemove', onMouseMove);
+            canvas.removeEventListener('wheel', onWheel);
         };
 
     }, [type]);
 
     return (
+        <div className="min-h-screen bg-black text-white p-4">
 
-        <div
-            className="
-                min-h-screen
-                bg-black
-                text-white
-                p-4
-            "
-        >
-
-            <h1
-                className="
-                    text-4xl
-                    font-bold
-                    mb-4
-                "
-            >
+            <h1 className="text-4xl font-bold mb-4">
                 AetherScope
             </h1>
 
-            <div className="mb-4">
-
-                <select
-                    value={type}
-                    onChange={handleTypeChange}
-                    className="
-                        bg-zinc-900
-                        border
-                        border-zinc-700
-                        px-4
-                        py-2
-                        rounded
-                    "
-                >
-
-                    <option value="mandelbrot">
-                        Mandelbrot
-                    </option>
-
-                    <option value="julia">
-                        Julia
-                    </option>
-
-                    <option value="burning">
-                        Burning Ship
-                    </option>
-
-                    <option value="tricorn">
-                        Tricorn
-                    </option>
-
-                </select>
-
-            </div>
+            <select
+                value={type}
+                onChange={handleTypeChange}
+                className="bg-zinc-900 border border-zinc-700 px-4 py-2 rounded mb-4"
+            >
+                <option value="mandelbrot">Mandelbrot</option>
+                <option value="julia">Julia</option>
+                <option value="burning">Burning Ship</option>
+                <option value="tricorn">Tricorn</option>
+            </select>
 
             <canvas
                 ref={canvasRef}
-                className="
-                    border
-                    border-zinc-800
-                    rounded
-                    shadow-2xl
-                    cursor-grab
-                "
+                className="border border-zinc-800 rounded shadow-2xl cursor-grab"
             />
-
-            <div className="mt-4 text-zinc-400">
-
-                Scroll = Zoom<br/>
-                Drag = Pan<br/>
-                Infinite logarithmic zoom enabled
-
-            </div>
 
         </div>
     );
