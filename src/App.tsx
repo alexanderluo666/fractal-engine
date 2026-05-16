@@ -15,10 +15,13 @@ export default function App() {
     const canvasRef =
         useRef<HTMLCanvasElement | null>(null);
 
-    const animationRef =
+    const frameRef =
         useRef<number>(0);
 
-    const zoomExpRef =
+    const zoomRef =
+        useRef(0);
+
+    const targetZoomRef =
         useRef(0);
 
     const xRef =
@@ -33,18 +36,11 @@ export default function App() {
     const lastMouseRef =
         useRef({ x: 0, y: 0 });
 
-    // =========================
-    // NEW: stable deep zoom refs
-    // =========================
-
-    const pixelShiftRef =
-        useRef({ x: 0, y: 0 });
-
-    const frameLimiterRef =
-        useRef(0);
-
     const [type, setType] =
         useState<FractalType>('mandelbrot');
+
+    const [gpuFailed, setGpuFailed] =
+        useState(false);
 
     useEffect(() => {
 
@@ -53,62 +49,303 @@ export default function App() {
 
         if (!canvas) return;
 
-        const ctx =
-            canvas.getContext('2d');
+        const gl =
+            canvas.getContext('webgl');
 
-        if (!ctx) return;
+        if (!gl) {
 
-        const safeCanvas = canvas;
-        const safeCtx = ctx;
+            setGpuFailed(true);
+            return;
+        }
+
+        const safeGL = gl;
 
         const DPR =
             window.devicePixelRatio || 1;
 
-        const W = 1200;
-        const H = 800;
+        const W = 1400;
+        const H = 900;
 
-        safeCanvas.width = W * DPR;
-        safeCanvas.height = H * DPR;
+        canvas.width = W * DPR;
+        canvas.height = H * DPR;
 
-        safeCanvas.style.width = `${W}px`;
-        safeCanvas.style.height = `${H}px`;
+        canvas.style.width = `${W}px`;
+        canvas.style.height = `${H}px`;
 
-        safeCtx.scale(DPR, DPR);
-
-        // =========================
-        // DYNAMIC RESOLUTION
-        // =========================
-
-        let SCALE = 1.5;
-
-        const RW =
-            Math.floor(W / SCALE);
-
-        const RH =
-            Math.floor(H / SCALE);
+        safeGL.viewport(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
 
         // =========================
-        // TEMP CANVAS
+        // VERTEX SHADER
         // =========================
 
-        const tempCanvas =
-            document.createElement('canvas');
+        const vertexShaderSource = `
+attribute vec2 position;
 
-        tempCanvas.width = RW;
-        tempCanvas.height = RH;
+void main() {
 
-        const tempCtx =
-            tempCanvas.getContext('2d');
+    gl_Position =
+        vec4(position, 0.0, 1.0);
+}
+`;
 
-        if (!tempCtx) return;
+        // =========================
+        // FRAGMENT SHADER
+        // =========================
 
-        const safeTempCtx = tempCtx;
+        const fragmentShaderSource = `
+precision highp float;
 
-        const imageData =
-            safeTempCtx.createImageData(RW, RH);
+uniform vec2 u_resolution;
+uniform vec2 u_center;
+uniform float u_zoom;
+uniform int u_type;
 
-        const pixels =
-            imageData.data;
+vec3 palette(float t){
+
+    return 0.5 + 0.5 * cos(
+        6.28318 *
+        (
+            vec3(0.0,0.33,0.67)
+            + t
+        )
+    );
+}
+
+int fractal(vec2 c){
+
+    vec2 z;
+
+    if(u_type == 1)
+        z = c;
+    else
+        z = vec2(0.0);
+
+    vec2 julia =
+        vec2(-0.8,0.156);
+
+    int i = 0;
+
+    for(int n=0;n<300;n++){
+
+        if(dot(z,z) > 4.0)
+            break;
+
+        if(u_type == 0){
+
+            z = vec2(
+                z.x*z.x - z.y*z.y,
+                2.0*z.x*z.y
+            ) + c;
+        }
+
+        else if(u_type == 1){
+
+            z = vec2(
+                z.x*z.x - z.y*z.y,
+                2.0*z.x*z.y
+            ) + julia;
+        }
+
+        else if(u_type == 2){
+
+            z = abs(z);
+
+            z = vec2(
+                z.x*z.x - z.y*z.y,
+                2.0*z.x*z.y
+            ) + c;
+        }
+
+        else {
+
+            z = vec2(
+                z.x*z.x - z.y*z.y,
+                -2.0*z.x*z.y
+            ) + c;
+        }
+
+        i++;
+    }
+
+    return i;
+}
+
+void main(){
+
+    vec2 uv =
+        (
+            gl_FragCoord.xy
+            - 0.5 * u_resolution
+        )
+        / u_resolution.y;
+
+    float scale =
+        exp(-u_zoom);
+
+    vec2 c =
+        uv * scale * 4.0
+        + u_center;
+
+    int iter =
+        fractal(c);
+
+    float t =
+        float(iter) / 300.0;
+
+    vec3 col =
+        palette(t);
+
+    if(iter >= 299)
+        col = vec3(0.0);
+
+    gl_FragColor =
+        vec4(col,1.0);
+}
+`;
+
+        // =========================
+        // SHADER COMPILER
+        // =========================
+
+        function compileShader(
+            type:number,
+            source:string
+        ){
+
+            const shader =
+                safeGL.createShader(type);
+
+            if(!shader){
+
+                throw new Error(
+                    'Shader compile failed'
+                );
+            }
+
+            safeGL.shaderSource(
+                shader,
+                source
+            );
+
+            safeGL.compileShader(
+                shader
+            );
+
+            return shader;
+        }
+
+        const vertexShader =
+            compileShader(
+                safeGL.VERTEX_SHADER,
+                vertexShaderSource
+            );
+
+        const fragmentShader =
+            compileShader(
+                safeGL.FRAGMENT_SHADER,
+                fragmentShaderSource
+            );
+
+        const program =
+            safeGL.createProgram();
+
+        if(!program)
+            return;
+
+        safeGL.attachShader(
+            program,
+            vertexShader
+        );
+
+        safeGL.attachShader(
+            program,
+            fragmentShader
+        );
+
+        safeGL.linkProgram(program);
+
+        safeGL.useProgram(program);
+
+        // =========================
+        // FULLSCREEN QUAD
+        // =========================
+
+        const vertices =
+            new Float32Array([
+                -1,-1,
+                 1,-1,
+                -1, 1,
+
+                -1, 1,
+                 1,-1,
+                 1, 1
+            ]);
+
+        const buffer =
+            safeGL.createBuffer();
+
+        safeGL.bindBuffer(
+            safeGL.ARRAY_BUFFER,
+            buffer
+        );
+
+        safeGL.bufferData(
+            safeGL.ARRAY_BUFFER,
+            vertices,
+            safeGL.STATIC_DRAW
+        );
+
+        const position =
+            safeGL.getAttribLocation(
+                program,
+                'position'
+            );
+
+        safeGL.enableVertexAttribArray(
+            position
+        );
+
+        safeGL.vertexAttribPointer(
+            position,
+            2,
+            safeGL.FLOAT,
+            false,
+            0,
+            0
+        );
+
+        // =========================
+        // UNIFORMS
+        // =========================
+
+        const resolutionLoc =
+            safeGL.getUniformLocation(
+                program,
+                'u_resolution'
+            );
+
+        const centerLoc =
+            safeGL.getUniformLocation(
+                program,
+                'u_center'
+            );
+
+        const zoomLoc =
+            safeGL.getUniformLocation(
+                program,
+                'u_zoom'
+            );
+
+        const typeLoc =
+            safeGL.getUniformLocation(
+                program,
+                'u_type'
+            );
 
         // =========================
         // INPUT
@@ -116,7 +353,7 @@ export default function App() {
 
         function onMouseDown(
             e: MouseEvent
-        ) {
+        ){
 
             draggingRef.current = true;
 
@@ -126,16 +363,16 @@ export default function App() {
             };
         }
 
-        function onMouseUp() {
+        function onMouseUp(){
 
             draggingRef.current = false;
         }
 
         function onMouseMove(
             e: MouseEvent
-        ) {
+        ){
 
-            if (!draggingRef.current)
+            if(!draggingRef.current)
                 return;
 
             const dx =
@@ -152,89 +389,30 @@ export default function App() {
             };
 
             const scale =
-                Math.exp(-zoomExpRef.current);
+                Math.exp(-zoomRef.current);
 
             xRef.current -=
-                dx * scale * 0.004;
+                dx * scale * 0.003;
 
             yRef.current -=
-                dy * scale * 0.004;
-
-            // =========================
-            // STABLE DRAGGING
-            // =========================
-
-            pixelShiftRef.current.x += dx;
-            pixelShiftRef.current.y += dy;
+                dy * scale * 0.003;
         }
 
         function onWheel(
             e: WheelEvent
-        ) {
+        ){
 
             e.preventDefault();
 
             const delta =
                 e.deltaY > 0
-                    ? -0.4
-                    : 0.4;
+                    ? -0.25
+                    : 0.25;
 
-            const rect =
-                safeCanvas.getBoundingClientRect();
-
-            const mx =
-                e.clientX - rect.left;
-
-            const my =
-                e.clientY - rect.top;
-
-            const before =
-                Math.exp(-zoomExpRef.current);
-
-            const wx =
-                (
-                    mx
-                    - W / 2
-                    - pixelShiftRef.current.x
-                )
-                * before
-                * 0.004
-                + xRef.current;
-
-            const wy =
-                (
-                    my
-                    - H / 2
-                    - pixelShiftRef.current.y
-                )
-                * before
-                * 0.004
-                + yRef.current;
-
-            zoomExpRef.current += delta;
-
-            const after =
-                Math.exp(-zoomExpRef.current);
-
-            xRef.current =
-                wx -
-                (mx - W / 2)
-                * after
-                * 0.004;
-
-            yRef.current =
-                wy -
-                (my - H / 2)
-                * after
-                * 0.004;
-
-            pixelShiftRef.current = {
-                x: 0,
-                y: 0
-            };
+            targetZoomRef.current += delta;
         }
 
-        safeCanvas.addEventListener(
+        canvas.addEventListener(
             'mousedown',
             onMouseDown
         );
@@ -249,356 +427,86 @@ export default function App() {
             onMouseMove
         );
 
-        safeCanvas.addEventListener(
+        canvas.addEventListener(
             'wheel',
             onWheel,
-            { passive: false }
+            { passive:false }
         );
 
         // =========================
-        // FRACTALS
+        // TYPE MAP
         // =========================
 
-        function mandelbrot(
-            x:number,
-            y:number,
-            max:number
-        ) {
+        function getType(){
 
-            let zx = 0;
-            let zy = 0;
+            if(type === 'mandelbrot')
+                return 0;
 
-            let i = 0;
+            if(type === 'julia')
+                return 1;
 
-            while (
-                zx*zx + zy*zy < 4 &&
-                i < max
-            ) {
+            if(type === 'burning')
+                return 2;
 
-                const xt =
-                    zx*zx - zy*zy + x;
-
-                zy =
-                    2*zx*zy + y;
-
-                zx = xt;
-
-                i++;
-            }
-
-            return i;
-        }
-
-        function julia(
-            x:number,
-            y:number,
-            max:number
-        ) {
-
-            let zx = x;
-            let zy = y;
-
-            const cx = -0.8;
-            const cy = 0.156;
-
-            let i = 0;
-
-            while (
-                zx*zx + zy*zy < 4 &&
-                i < max
-            ) {
-
-                const xt =
-                    zx*zx - zy*zy + cx;
-
-                zy =
-                    2*zx*zy + cy;
-
-                zx = xt;
-
-                i++;
-            }
-
-            return i;
-        }
-
-        function burning(
-            x:number,
-            y:number,
-            max:number
-        ) {
-
-            let zx = 0;
-            let zy = 0;
-
-            let i = 0;
-
-            while (
-                zx*zx + zy*zy < 4 &&
-                i < max
-            ) {
-
-                zx = Math.abs(zx);
-                zy = Math.abs(zy);
-
-                const xt =
-                    zx*zx - zy*zy + x;
-
-                zy =
-                    2*zx*zy + y;
-
-                zx = xt;
-
-                i++;
-            }
-
-            return i;
-        }
-
-        function tricorn(
-            x:number,
-            y:number,
-            max:number
-        ) {
-
-            let zx = 0;
-            let zy = 0;
-
-            let i = 0;
-
-            while (
-                zx*zx + zy*zy < 4 &&
-                i < max
-            ) {
-
-                const xt =
-                    zx*zx - zy*zy + x;
-
-                zy =
-                    -2*zx*zy + y;
-
-                zx = xt;
-
-                i++;
-            }
-
-            return i;
+            return 3;
         }
 
         // =========================
-        // COLOR
+        // RENDER LOOP
         // =========================
 
-        function palette(i:number,max:number){
+        function render(){
 
-            if(i >= max)
-                return [0,0,0];
+            zoomRef.current +=
+                (
+                    targetZoomRef.current
+                    - zoomRef.current
+                ) * 0.08;
 
-            const t = i / max;
+            if(resolutionLoc){
 
-            const r =
-                127 +
-                127 *
-                Math.sin(6.283 * t);
-
-            const g =
-                127 +
-                127 *
-                Math.sin(
-                    6.283 * (t + 0.33)
-                );
-
-            const b =
-                127 +
-                127 *
-                Math.sin(
-                    6.283 * (t + 0.66)
-                );
-
-            return [r,g,b];
-        }
-
-        // =========================
-        // PARALLEL RENDER
-        // =========================
-
-        function renderBand(
-            yStart:number,
-            yEnd:number,
-            scale:number,
-            maxIter:number
-        ) {
-
-            const cx = xRef.current;
-            const cy = yRef.current;
-
-            const pxShift =
-                pixelShiftRef.current.x;
-
-            const pyShift =
-                pixelShiftRef.current.y;
-
-            for (
-                let py = yStart;
-                py < yEnd;
-                py++
-            ) {
-
-                for (
-                    let px = 0;
-                    px < RW;
-                    px++
-                ) {
-
-                    const baseX =
-                        px - RW / 2;
-
-                    const baseY =
-                        py - RH / 2;
-
-                    const x =
-                        (
-                            baseX - pxShift
-                        )
-                        * scale
-                        * 0.004
-                        + cx;
-
-                    const y =
-                        (
-                            baseY - pyShift
-                        )
-                        * scale
-                        * 0.004
-                        + cy;
-
-                    let iter = 0;
-
-                    if(type==='mandelbrot')
-                        iter = mandelbrot(x,y,maxIter);
-
-                    else if(type==='julia')
-                        iter = julia(x,y,maxIter);
-
-                    else if(type==='burning')
-                        iter = burning(x,y,maxIter);
-
-                    else
-                        iter = tricorn(x,y,maxIter);
-
-                    const [r,g,b] =
-                        palette(iter,maxIter);
-
-                    const idx =
-                        (py * RW + px) * 4;
-
-                    pixels[idx] = r;
-                    pixels[idx+1] = g;
-                    pixels[idx+2] = b;
-                    pixels[idx+3] = 255;
-                }
-            }
-        }
-
-        // =========================
-        // MAIN RENDER LOOP
-        // =========================
-
-        function render() {
-
-            const now =
-                performance.now();
-
-            // =========================
-            // FRAME LIMITER
-            // =========================
-
-            if (
-                now
-                - frameLimiterRef.current
-                < 16
-            ) {
-
-                animationRef.current =
-                    requestAnimationFrame(render);
-
-                return;
-            }
-
-            frameLimiterRef.current = now;
-
-            const scale =
-                Math.exp(-zoomExpRef.current);
-
-            // =========================
-            // ADAPTIVE ITERATIONS
-            // =========================
-
-            const maxIter =
-                Math.floor(
-                    180
-                    + zoomExpRef.current * 25
-                );
-
-            // =========================
-            // CPU PARALLELIZATION
-            // =========================
-
-            const bands = 4;
-            const bandHeight =
-                Math.floor(RH / bands);
-
-            for (
-                let i = 0;
-                i < bands;
-                i++
-            ) {
-
-                const yStart =
-                    i * bandHeight;
-
-                const yEnd =
-                    i === bands - 1
-                    ? RH
-                    : yStart + bandHeight;
-
-                renderBand(
-                    yStart,
-                    yEnd,
-                    scale,
-                    maxIter
+                safeGL.uniform2f(
+                    resolutionLoc,
+                    canvas.width,
+                    canvas.height
                 );
             }
 
-            safeTempCtx.putImageData(
-                imageData,
+            if(centerLoc){
+
+                safeGL.uniform2f(
+                    centerLoc,
+                    xRef.current,
+                    yRef.current
+                );
+            }
+
+            if(zoomLoc){
+
+                safeGL.uniform1f(
+                    zoomLoc,
+                    zoomRef.current
+                );
+            }
+
+            if(typeLoc){
+
+                safeGL.uniform1i(
+                    typeLoc,
+                    getType()
+                );
+            }
+
+            safeGL.drawArrays(
+                safeGL.TRIANGLES,
                 0,
-                0
+                6
             );
 
-            safeCtx.imageSmoothingEnabled = false;
-
-            safeCtx.clearRect(
-                0,
-                0,
-                W,
-                H
-            );
-
-            safeCtx.drawImage(
-                tempCanvas,
-                0,
-                0,
-                RW,
-                RH,
-                0,
-                0,
-                W,
-                H
-            );
-
-            animationRef.current =
-                requestAnimationFrame(render);
+            frameRef.current =
+                requestAnimationFrame(
+                    render
+                );
         }
 
         render();
@@ -606,10 +514,10 @@ export default function App() {
         return () => {
 
             cancelAnimationFrame(
-                animationRef.current
+                frameRef.current
             );
 
-            safeCanvas.removeEventListener(
+            canvas.removeEventListener(
                 'mousedown',
                 onMouseDown
             );
@@ -624,7 +532,7 @@ export default function App() {
                 onMouseMove
             );
 
-            safeCanvas.removeEventListener(
+            canvas.removeEventListener(
                 'wheel',
                 onWheel
             );
@@ -657,9 +565,7 @@ export default function App() {
 
                 <select
                     value={type}
-                    onChange={(e) =>
-                        setType(e.target.value as FractalType)
-                    }
+                    onChange={(e) => setType(e.target.value as FractalType)}
                     className="
                         bg-zinc-900
                         border
@@ -690,6 +596,18 @@ export default function App() {
 
             </div>
 
+            {
+                gpuFailed && (
+
+                    <div className="text-red-400 mb-4">
+
+                        WebGL failed.
+                        GPU acceleration may be disabled.
+
+                    </div>
+                )
+            }
+
             <canvas
                 ref={canvasRef}
                 className="
@@ -703,10 +621,10 @@ export default function App() {
 
             <div className="mt-4 text-zinc-400">
 
-                Scroll = Zoom<br/>
+                GPU WebGL Rendering<br/>
+                Infinite Smooth Zoom<br/>
                 Drag = Pan<br/>
-                CPU Parallel Rendering<br/>
-                Infinite Deep Zoom Enabled
+                Scroll = Zoom
 
             </div>
 
