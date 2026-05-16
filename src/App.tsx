@@ -49,8 +49,14 @@ export default function App() {
 
         if (!canvas) return;
 
+        // =========================
+        // SAFE CANVAS
+        // =========================
+
+        const safeCanvas = canvas;
+
         const gl =
-            canvas.getContext('webgl');
+            safeCanvas.getContext('webgl');
 
         if (!gl) {
 
@@ -66,17 +72,17 @@ export default function App() {
         const W = 1400;
         const H = 900;
 
-        canvas.width = W * DPR;
-        canvas.height = H * DPR;
+        safeCanvas.width = W * DPR;
+        safeCanvas.height = H * DPR;
 
-        canvas.style.width = `${W}px`;
-        canvas.style.height = `${H}px`;
+        safeCanvas.style.width = `${W}px`;
+        safeCanvas.style.height = `${H}px`;
 
         safeGL.viewport(
             0,
             0,
-            canvas.width,
-            canvas.height
+            safeCanvas.width,
+            safeCanvas.height
         );
 
         // =========================
@@ -412,7 +418,7 @@ void main(){
             targetZoomRef.current += delta;
         }
 
-        canvas.addEventListener(
+        safeCanvas.addEventListener(
             'mousedown',
             onMouseDown
         );
@@ -427,7 +433,7 @@ void main(){
             onMouseMove
         );
 
-        canvas.addEventListener(
+        safeCanvas.addEventListener(
             'wheel',
             onWheel,
             { passive:false }
@@ -467,8 +473,8 @@ void main(){
 
                 safeGL.uniform2f(
                     resolutionLoc,
-                    canvas.width,
-                    canvas.height
+                    safeCanvas.width,
+                    safeCanvas.height
                 );
             }
 
@@ -517,7 +523,7 @@ void main(){
                 frameRef.current
             );
 
-            canvas.removeEventListener(
+            safeCanvas.removeEventListener(
                 'mousedown',
                 onMouseDown
             );
@@ -532,7 +538,7 @@ void main(){
                 onMouseMove
             );
 
-            canvas.removeEventListener(
+            safeCanvas.removeEventListener(
                 'wheel',
                 onWheel
             );
