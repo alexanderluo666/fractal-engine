@@ -1,5 +1,5 @@
 # Aetherscope
-+ Played at [Aetherscope](alexanderluo666.github.io/fractal-engine).
++ Played at [Aetherscope](https://aetherscope.alexanderluo.com).
 + Disclaimer: The visuals presented in Aetherscope might be triggering to some due to the lighting of the fractals.
 
 ## Inspiration
